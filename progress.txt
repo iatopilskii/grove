@@ -37,3 +37,57 @@ go vet ./...        # No issues
 go mod tidy         # Dependencies clean
 ```
 
+### UI-002: Tabbed Navigation Bar (COMPLETED)
+
+**Task**: Tabbed navigation bar at top with at least 3 tabs: Worktrees, Branches, Settings
+
+**Implementation**:
+- Created `internal/ui/tabs.go` with Tab model component
+- Implemented `Tab` type with constants: `TabWorktrees`, `TabBranches`, `TabSettings`
+- Created `Tabs` struct for managing tab bar state
+- Implemented Tab/Shift+Tab keyboard navigation with wrap-around
+- Added visual styling with lipgloss.AdaptiveColor for light/dark mode support
+- Active tab is highlighted with background color and bold text
+- Inactive tabs have muted foreground color
+- Border line below tab bar for visual separation
+- Integrated tabs into main App component
+- Content area updates dynamically based on active tab
+
+**Verification Steps Passed**:
+- [x] Tab bar renders at top of screen
+- [x] Tab/Shift+Tab cycles through tabs
+- [x] Active tab is visually highlighted
+- [x] Content area updates when tab changes
+
+**Tests** (tabs_test.go):
+- `TestTabString` - verifies tab display names
+- `TestNewTabs` - verifies constructor and default active tab
+- `TestTabsActive` - verifies Active() returns current tab
+- `TestTabsSetActive` - table-driven tests for SetActive with bounds checking
+- `TestTabsNext` - verifies forward cycling with wrap-around
+- `TestTabsPrev` - verifies backward cycling with wrap-around
+- `TestTabsUpdateTabKey` - verifies Tab key navigation
+- `TestTabsUpdateShiftTabKey` - verifies Shift+Tab navigation
+- `TestTabsUpdateOtherKeys` - verifies other keys don't affect tabs
+- `TestTabsView` - verifies View() output
+- `TestTabsViewContainsBorder` - verifies border rendering
+- `TestTabsViewUpdatesWithActiveTab` - verifies styling changes per tab
+- `TestTabsSetWidth` - verifies width setting
+
+**Tests** (app_test.go - new):
+- `TestAppViewContainsTabs` - verifies all tab names in view
+- `TestAppViewShowsActiveTabContent` - table-driven content verification
+- `TestAppUpdateTabKey` - verifies Tab key in App
+- `TestAppUpdateShiftTabKey` - verifies Shift+Tab in App
+- `TestAppUpdateWindowSize` - verifies window resize handling
+- `TestAppTabCycling` - verifies full tab cycle
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 31 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

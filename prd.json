@@ -41,7 +41,7 @@
         "Active tab is visually highlighted",
         "Content area updates when tab changes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "UI-003",
