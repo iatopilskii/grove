@@ -208,7 +208,7 @@
         "Config parsing errors shown gracefully",
         "Config reload or restart applies changes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "BUILD-001",

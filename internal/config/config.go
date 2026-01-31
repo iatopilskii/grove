@@ -79,8 +79,8 @@ func DefaultConfig() Config {
 	}
 }
 
-// DefaultConfigPath returns the default path for the theme configuration file.
-// Uses XDG Base Directory Specification (~/.config/gwt/theme.yaml).
+// DefaultConfigPath returns the default path for the application configuration file.
+// Uses XDG Base Directory Specification (~/.config/gwt/config.yaml).
 func DefaultConfigPath() string {
 	configDir := os.Getenv("XDG_CONFIG_HOME")
 	if configDir == "" {
@@ -90,7 +90,7 @@ func DefaultConfigPath() string {
 		}
 		configDir = filepath.Join(homeDir, ".config")
 	}
-	return filepath.Join(configDir, "gwt", "theme.yaml")
+	return filepath.Join(configDir, "gwt", "config.yaml")
 }
 
 // LoadConfig loads configuration from the specified path.
@@ -158,7 +158,7 @@ func GenerateSampleConfig() string {
 # This file allows customization of the application's color scheme.
 # Colors use hex format (#RRGGBB) and support light/dark terminal themes.
 #
-# Location: ~/.config/gwt/theme.yaml
+# Location: ~/.config/gwt/config.yaml
 # Changes require application restart to take effect.
 
 theme:

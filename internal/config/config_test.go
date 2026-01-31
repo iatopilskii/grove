@@ -36,15 +36,15 @@ func TestDefaultConfigPath(t *testing.T) {
 		t.Errorf("expected path to contain 'gwt', got: %s", path)
 	}
 
-	// Should end with theme.yaml
-	if filepath.Base(path) != "theme.yaml" {
-		t.Errorf("expected path to end with 'theme.yaml', got: %s", filepath.Base(path))
+	// Should end with config.yaml
+	if filepath.Base(path) != "config.yaml" {
+		t.Errorf("expected path to end with 'config.yaml', got: %s", filepath.Base(path))
 	}
 }
 
 func TestLoadConfigNoFile(t *testing.T) {
 	// Load from a non-existent path should return defaults
-	cfg, err := LoadConfig("/non/existent/path/theme.yaml")
+	cfg, err := LoadConfig("/non/existent/path/config.yaml")
 	if err != nil {
 		t.Errorf("expected no error for non-existent file, got: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestLoadConfigNoFile(t *testing.T) {
 func TestLoadConfigValidYAML(t *testing.T) {
 	// Create a temporary config file
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "theme.yaml")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	yamlContent := `theme:
   colors:
@@ -91,7 +91,7 @@ func TestLoadConfigValidYAML(t *testing.T) {
 func TestLoadConfigPartialYAML(t *testing.T) {
 	// Create a partial config file - only override some values
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "theme.yaml")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	yamlContent := `theme:
   colors:
@@ -124,7 +124,7 @@ func TestLoadConfigPartialYAML(t *testing.T) {
 func TestLoadConfigInvalidYAML(t *testing.T) {
 	// Create an invalid YAML file
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "theme.yaml")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	invalidYAML := `invalid yaml: [[[`
 
@@ -148,7 +148,7 @@ func TestLoadConfigInvalidYAML(t *testing.T) {
 func TestLoadConfigMalformedColors(t *testing.T) {
 	// Test that malformed color values are handled gracefully
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "theme.yaml")
+	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	yamlContent := `theme:
   colors:
@@ -230,7 +230,7 @@ func TestGenerateSampleConfig(t *testing.T) {
 
 func TestWriteSampleConfig(t *testing.T) {
 	tmpDir := t.TempDir()
-	configPath := filepath.Join(tmpDir, "subdir", "theme.yaml")
+	configPath := filepath.Join(tmpDir, "subdir", "config.yaml")
 
 	err := WriteSampleConfig(configPath)
 	if err != nil {

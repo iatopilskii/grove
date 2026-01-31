@@ -940,3 +940,36 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+
+### CONFIG-001: Application Reads Config from Standard Location (COMPLETED)
+
+**Task**: Application reads config from standard location with XDG compliance
+
+**Implementation**:
+- Renamed config file from `theme.yaml` to `config.yaml` to match PRD requirement
+- Updated `DefaultConfigPath()` to return `~/.config/gwt/config.yaml`
+- Updated sample config comment to reference `config.yaml`
+- Updated main.go comment to reference `config.yaml`
+- Updated all tests to use `config.yaml` filename
+
+**Files Modified**:
+- `internal/config/config.go` - Updated default path and sample config location
+- `internal/config/config_test.go` - Updated all test file paths
+- `cmd/gwt/main.go` - Updated comment
+
+**Verification Steps Passed**:
+- [x] Checks ~/.config/gwt/config.yaml (XDG compliant)
+- [x] Falls back to defaults if no config exists (via LoadConfig)
+- [x] Config parsing errors shown gracefully (warning to stderr, uses defaults)
+- [x] Config reload or restart applies changes (restart applies changes)
+
+**Note**: The configuration system was already fully functional from STYLE-003 implementation. This change renames the config file from `theme.yaml` to `config.yaml` to match the CONFIG-001 requirement specification.
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
