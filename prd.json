@@ -136,7 +136,7 @@
         "Worktree list updates after create/delete",
         "Error shown if not in git repo"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "GIT-002",

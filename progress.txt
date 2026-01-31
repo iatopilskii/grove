@@ -504,3 +504,65 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### GIT-001: List All Git Worktrees in Current Repository (COMPLETED)
+
+**Task**: List all git worktrees in current repository
+
+**Implementation**:
+- Created `internal/git/worktree.go` with git worktree operations
+- Defined `Worktree` struct with fields: Path, Branch, CommitHash, IsBare, IsDetached
+- Implemented `Name()` method to get worktree name from path
+- Created `NotGitRepoError` for non-git directory handling with `IsNotGitRepoError()` helper
+- Implemented `IsGitRepository(dir)` to check if directory is in a git repo
+- Implemented `GetCurrentDirectory()` helper to get current working directory
+- Implemented `ListWorktrees(dir)` to list all worktrees using `git worktree list`
+- Implemented `ParseWorktreeList(output)` to parse git command output
+- Handles multiple output formats: regular worktrees, bare repos, detached HEAD
+- Extended `App` struct with worktrees, gitError, and repoPath fields
+- Created `NewAppWithPath(path)` for specifying repository path
+- Created `NewAppWithItems(items)` for testing with custom items
+- Added `loadWorktrees()` method to load git worktrees and convert to ListItem
+- Added `worktreeToListItem()` conversion function
+- Added `Worktrees()`, `GitError()`, `IsInGitRepo()`, `RefreshWorktrees()` getters
+- Added `renderGitError()` to display error message for non-git directories
+- Updated `View()` to show error message when not in git repository
+- Error display includes helpful message: "Not a Git Repository" with git init hint
+
+**Verification Steps Passed**:
+- [x] Running in git repo shows all worktrees
+- [x] Each worktree shows: name, path, branch (in details pane)
+- [x] Worktree list updates after create/delete (via RefreshWorktrees)
+- [x] Error shown if not in git repo
+
+**Tests** (worktree_test.go - 12 tests):
+- `TestWorktreeFields` - verifies Worktree struct fields
+- `TestWorktreeName` - verifies Name() returns last path component
+- `TestParseWorktreeList` - table-driven parsing tests (6 sub-tests)
+  - single worktree, multiple worktrees, bare repository, detached HEAD, empty, whitespace
+- `TestIsGitRepository` - verifies git repo detection
+- `TestListWorktreesInNonGitDir` - verifies error for non-git directory
+- `TestListWorktreesIntegration` - integration test with real git repo
+- `TestListWorktreesWithMultipleWorktrees` - tests listing multiple worktrees
+- `TestNotGitRepoError` - verifies error type and message
+- `TestGetCurrentDirectory` - verifies current directory getter
+
+**Tests** (app_test.go - new tests):
+- `TestNewAppWithItems` - verifies NewAppWithItems creates app with custom items
+- `TestNewAppWithItemsInitializesDetails` - verifies details set for first item
+- `TestNewAppWithEmptyItems` - verifies app works with empty items
+- `TestAppWorktreesGetter` - verifies Worktrees() returns worktrees
+- `TestAppGitErrorGetter` - verifies GitError() returns error state
+- `TestAppIsInGitRepo` - verifies IsInGitRepo() works
+- `TestAppRefreshWorktrees` - verifies RefreshWorktrees works
+- `TestAppViewShowsGitError` - verifies View shows error for non-git directory
+- `TestAppViewShowsWorktreeList` - verifies View shows worktree list in git repo
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 256 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

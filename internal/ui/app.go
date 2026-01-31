@@ -6,6 +6,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/ilatopilskij/gwt/internal/git"
 )
 
 // App is the main application model implementing tea.Model.
@@ -27,17 +29,52 @@ type App struct {
 	width int
 	// height is the terminal height
 	height int
+	// worktrees stores the git worktrees
+	worktrees []git.Worktree
+	// gitError stores any error from git operations
+	gitError error
+	// repoPath is the path to the git repository
+	repoPath string
 }
 
 // NewApp creates and returns a new App instance.
+// It attempts to load worktrees from the current directory.
 func NewApp() *App {
-	// Sample worktree items for demonstration
-	items := []ListItem{
-		{ID: "main", Title: "main", Description: "Main worktree at /path/to/repo"},
-		{ID: "feature-1", Title: "feature-1", Description: "Feature branch worktree at /path/to/repo-feature-1"},
-		{ID: "bugfix-2", Title: "bugfix-2", Description: "Bugfix branch worktree at /path/to/repo-bugfix-2"},
+	return NewAppWithPath("")
+}
+
+// NewAppWithPath creates a new App instance for a specific path.
+// If path is empty, uses the current working directory.
+func NewAppWithPath(path string) *App {
+	app := &App{
+		tabs:       NewTabs(),
+		list:       NewList(nil),
+		details:    NewDetails(),
+		actionMenu: NewActionMenu(),
+		feedback:   NewFeedback(),
+		repoPath:   path,
 	}
 
+	// Determine the repository path
+	if path == "" {
+		var err error
+		path, err = git.GetCurrentDirectory()
+		if err != nil {
+			app.gitError = err
+			return app
+		}
+		app.repoPath = path
+	}
+
+	// Load worktrees
+	app.loadWorktrees()
+
+	return app
+}
+
+// NewAppWithItems creates a new App instance with predefined items.
+// This is primarily used for testing.
+func NewAppWithItems(items []ListItem) *App {
 	list := NewList(items)
 	details := NewDetails()
 
@@ -53,6 +90,73 @@ func NewApp() *App {
 		actionMenu: NewActionMenu(),
 		feedback:   NewFeedback(),
 	}
+}
+
+// loadWorktrees loads git worktrees from the repository and updates the list.
+func (a *App) loadWorktrees() {
+	worktrees, err := git.ListWorktrees(a.repoPath)
+	if err != nil {
+		a.gitError = err
+		a.worktrees = nil
+		a.list.SetItems(nil)
+		return
+	}
+
+	a.worktrees = worktrees
+	a.gitError = nil
+
+	// Convert worktrees to list items
+	items := make([]ListItem, len(worktrees))
+	for i, wt := range worktrees {
+		items[i] = worktreeToListItem(wt)
+	}
+
+	a.list.SetItems(items)
+
+	// Initialize details with first item
+	if len(items) > 0 {
+		a.details.SetItem(a.list.SelectedItem())
+	}
+}
+
+// worktreeToListItem converts a git.Worktree to a ListItem.
+func worktreeToListItem(wt git.Worktree) ListItem {
+	var description string
+	if wt.IsBare {
+		description = "Bare repository at " + wt.Path
+	} else if wt.IsDetached {
+		description = "Detached HEAD at " + wt.Path
+	} else if wt.Branch != "" {
+		description = "Branch: " + wt.Branch + "\nPath: " + wt.Path
+	} else {
+		description = "Path: " + wt.Path
+	}
+
+	return ListItem{
+		ID:          wt.Path,
+		Title:       wt.Name(),
+		Description: description,
+	}
+}
+
+// Worktrees returns the list of git worktrees.
+func (a *App) Worktrees() []git.Worktree {
+	return a.worktrees
+}
+
+// GitError returns any error from git operations.
+func (a *App) GitError() error {
+	return a.gitError
+}
+
+// IsInGitRepo returns true if the app is running in a git repository.
+func (a *App) IsInGitRepo() bool {
+	return a.gitError == nil && !git.IsNotGitRepoError(a.gitError)
+}
+
+// RefreshWorktrees reloads the worktree list from git.
+func (a *App) RefreshWorktrees() {
+	a.loadWorktrees()
 }
 
 // Init initializes the application and returns an initial command.
@@ -226,7 +330,12 @@ func (a *App) View() string {
 	// Render content area based on active tab
 	switch a.tabs.Active() {
 	case TabWorktrees, TabBranches:
-		b.WriteString(a.renderTwoPaneLayout())
+		// Show error if not in a git repository
+		if git.IsNotGitRepoError(a.gitError) {
+			b.WriteString(a.renderGitError())
+		} else {
+			b.WriteString(a.renderTwoPaneLayout())
+		}
 	case TabSettings:
 		contentStyle := lipgloss.NewStyle().
 			Padding(1, 2)
@@ -261,4 +370,28 @@ func (a *App) renderTwoPaneLayout() string {
 
 	// Join horizontally
 	return lipgloss.JoinHorizontal(lipgloss.Top, listView, " ", detailsView)
+}
+
+// renderGitError renders an error message for git-related errors.
+func (a *App) renderGitError() string {
+	errorStyle := lipgloss.NewStyle().
+		Padding(2, 4).
+		Foreground(Colors.Error)
+
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(Colors.Error)
+
+	var b strings.Builder
+	b.WriteString(titleStyle.Render("Not a Git Repository"))
+	b.WriteString("\n\n")
+	b.WriteString("This directory is not part of a git repository.")
+	b.WriteString("\n\n")
+	b.WriteString("Please run this application from within a git repository to manage worktrees.")
+	b.WriteString("\n\n")
+	b.WriteString("To initialize a git repository, run:")
+	b.WriteString("\n")
+	b.WriteString("  git init")
+
+	return errorStyle.Render(b.String())
 }

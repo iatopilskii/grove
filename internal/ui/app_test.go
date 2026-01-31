@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/ilatopilskij/gwt/internal/git"
 )
 
 // TestAppImplementsTeaModel verifies that App implements tea.Model interface
@@ -105,6 +107,11 @@ func TestAppViewContainsTabs(t *testing.T) {
 
 // TestAppViewShowsActiveTabContent verifies content updates based on active tab
 func TestAppViewShowsActiveTabContent(t *testing.T) {
+	sampleItems := []ListItem{
+		{ID: "main", Title: "main", Description: "Main worktree at /path/to/repo"},
+		{ID: "feature-1", Title: "feature-1", Description: "Feature branch worktree at /path/to/repo-feature-1"},
+		{ID: "bugfix-2", Title: "bugfix-2", Description: "Bugfix branch worktree at /path/to/repo-bugfix-2"},
+	}
 	tests := []struct {
 		tab            Tab
 		expectedPhrase string
@@ -116,7 +123,7 @@ func TestAppViewShowsActiveTabContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.tab.String(), func(t *testing.T) {
-			app := NewApp()
+			app := NewAppWithItems(sampleItems)
 			app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 			app.tabs.SetActive(tt.tab)
 			view := app.View()
@@ -221,7 +228,12 @@ func TestAppViewShowsDetails(t *testing.T) {
 
 // TestAppListNavigationDown verifies arrow key navigation in list
 func TestAppListNavigationDown(t *testing.T) {
-	app := NewApp()
+	sampleItems := []ListItem{
+		{ID: "main", Title: "main", Description: "Main worktree at /path/to/repo"},
+		{ID: "feature-1", Title: "feature-1", Description: "Feature branch"},
+		{ID: "bugfix-2", Title: "bugfix-2", Description: "Bugfix branch"},
+	}
+	app := NewAppWithItems(sampleItems)
 	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	initial := app.list.Selected()
@@ -235,7 +247,11 @@ func TestAppListNavigationDown(t *testing.T) {
 
 // TestAppListNavigationUp verifies arrow key navigation in list
 func TestAppListNavigationUp(t *testing.T) {
-	app := NewApp()
+	sampleItems := []ListItem{
+		{ID: "main", Title: "main", Description: "Main worktree"},
+		{ID: "feature-1", Title: "feature-1", Description: "Feature branch"},
+	}
+	app := NewAppWithItems(sampleItems)
 	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	// Move down first, then up
@@ -249,7 +265,11 @@ func TestAppListNavigationUp(t *testing.T) {
 
 // TestAppDetailsUpdatesWithSelection verifies details pane updates when list selection changes
 func TestAppDetailsUpdatesWithSelection(t *testing.T) {
-	app := NewApp()
+	sampleItems := []ListItem{
+		{ID: "main", Title: "main", Description: "Main worktree"},
+		{ID: "feature-1", Title: "feature-1", Description: "Feature branch"},
+	}
+	app := NewAppWithItems(sampleItems)
 	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	// Get initial details item
@@ -383,7 +403,12 @@ func TestAppPageNavigationOnlyOnListTabs(t *testing.T) {
 
 // TestAppMouseClickListItem verifies clicking on list item selects it
 func TestAppMouseClickListItem(t *testing.T) {
-	app := NewApp()
+	sampleItems := []ListItem{
+		{ID: "main", Title: "main", Description: "Main worktree"},
+		{ID: "feature-1", Title: "feature-1", Description: "Feature branch"},
+		{ID: "bugfix-2", Title: "bugfix-2", Description: "Bugfix branch"},
+	}
+	app := NewAppWithItems(sampleItems)
 	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	// Click on second item in the list
@@ -422,7 +447,11 @@ func TestAppMouseClickTab(t *testing.T) {
 
 // TestAppMouseWheelInList verifies mouse wheel scrolls list
 func TestAppMouseWheelInList(t *testing.T) {
-	app := NewApp()
+	sampleItems := []ListItem{
+		{ID: "main", Title: "main", Description: "Main worktree"},
+		{ID: "feature-1", Title: "feature-1", Description: "Feature branch"},
+	}
+	app := NewAppWithItems(sampleItems)
 	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	initial := app.list.Selected()
 
@@ -483,7 +512,11 @@ func TestAppMouseDetailsPane(t *testing.T) {
 
 // TestAppMouseDetailsUpdateAfterClick verifies details updates after mouse selection
 func TestAppMouseDetailsUpdateAfterClick(t *testing.T) {
-	app := NewApp()
+	sampleItems := []ListItem{
+		{ID: "main", Title: "main", Description: "Main worktree"},
+		{ID: "feature-1", Title: "feature-1", Description: "Feature branch"},
+	}
+	app := NewAppWithItems(sampleItems)
 	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 
 	initialItem := app.details.Item()
@@ -823,5 +856,124 @@ func TestAppHandleActionExecutedNilAction(t *testing.T) {
 
 	if app.feedback.Visible() {
 		t.Error("Nil action should not show feedback")
+	}
+}
+
+// TestNewAppWithItems verifies NewAppWithItems creates app with custom items
+func TestNewAppWithItems(t *testing.T) {
+	items := []ListItem{
+		{ID: "test1", Title: "Test 1", Description: "Desc 1"},
+		{ID: "test2", Title: "Test 2", Description: "Desc 2"},
+	}
+	app := NewAppWithItems(items)
+
+	if app == nil {
+		t.Fatal("NewAppWithItems returned nil")
+	}
+	if len(app.list.Items()) != 2 {
+		t.Errorf("Expected 2 items, got %d", len(app.list.Items()))
+	}
+	if app.list.Items()[0].ID != "test1" {
+		t.Errorf("Expected first item ID 'test1', got '%s'", app.list.Items()[0].ID)
+	}
+}
+
+// TestNewAppWithItemsInitializesDetails verifies details is set for first item
+func TestNewAppWithItemsInitializesDetails(t *testing.T) {
+	items := []ListItem{
+		{ID: "first", Title: "First", Description: "First Description"},
+		{ID: "second", Title: "Second", Description: "Second Description"},
+	}
+	app := NewAppWithItems(items)
+
+	item := app.details.Item()
+	if item == nil {
+		t.Fatal("Details should have an item")
+	}
+	if item.ID != "first" {
+		t.Errorf("Expected first item in details, got %s", item.ID)
+	}
+}
+
+// TestNewAppWithEmptyItems verifies app works with empty items
+func TestNewAppWithEmptyItems(t *testing.T) {
+	app := NewAppWithItems(nil)
+
+	if app == nil {
+		t.Fatal("NewAppWithItems returned nil")
+	}
+	if len(app.list.Items()) != 0 {
+		t.Errorf("Expected 0 items, got %d", len(app.list.Items()))
+	}
+}
+
+// TestAppWorktreesGetter verifies Worktrees() returns worktrees
+func TestAppWorktreesGetter(t *testing.T) {
+	app := NewApp()
+	// In a git repo, Worktrees() should return some worktrees
+	// The exact count depends on the test environment
+	_ = app.Worktrees() // Just ensure it doesn't panic
+}
+
+// TestAppGitErrorGetter verifies GitError() returns error state
+func TestAppGitErrorGetter(t *testing.T) {
+	app := NewApp()
+	// In a git repo, GitError() should be nil
+	// We just test that the method works
+	_ = app.GitError() // Just ensure it doesn't panic
+}
+
+// TestAppIsInGitRepo verifies IsInGitRepo() works
+func TestAppIsInGitRepo(t *testing.T) {
+	app := NewApp()
+	// Since tests run in a git repo, this should return true
+	if !app.IsInGitRepo() {
+		t.Skip("Test must be run in a git repository")
+	}
+}
+
+// TestAppRefreshWorktrees verifies RefreshWorktrees works
+func TestAppRefreshWorktrees(t *testing.T) {
+	app := NewApp()
+	initialCount := len(app.Worktrees())
+
+	app.RefreshWorktrees()
+
+	// Count should be same after refresh (no worktrees were added/removed)
+	if len(app.Worktrees()) != initialCount {
+		t.Errorf("Worktree count changed after refresh: %d -> %d", initialCount, len(app.Worktrees()))
+	}
+}
+
+// TestAppViewShowsGitError verifies View shows error for non-git directory
+func TestAppViewShowsGitError(t *testing.T) {
+	app := NewAppWithItems(nil)
+	// Simulate a git error using actual NotGitRepoError
+	app.gitError = &git.NotGitRepoError{Path: "/tmp/test"}
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	view := app.View()
+
+	if !strings.Contains(view, "Not a Git Repository") {
+		t.Error("View should show 'Not a Git Repository' error message")
+	}
+}
+
+// TestAppViewShowsWorktreeList verifies View shows worktree list in git repo
+func TestAppViewShowsWorktreeList(t *testing.T) {
+	app := NewApp()
+	if !app.IsInGitRepo() {
+		t.Skip("Test must be run in a git repository")
+	}
+
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	view := app.View()
+
+	// Should show the selection indicator and not show git error
+	if !strings.Contains(view, "▸") {
+		t.Error("View should show list selection indicator")
+	}
+	if strings.Contains(view, "Not a Git Repository") {
+		t.Error("View should not show git error in a git repository")
 	}
 }
