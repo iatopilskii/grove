@@ -1,7 +1,10 @@
 // Package ui provides the terminal user interface for the git worktree manager.
 package ui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/ilatopilskij/gwt/internal/config"
+)
 
 // Colors defines the adaptive color palette for the application.
 // All colors use lipgloss.AdaptiveColor to automatically adjust
@@ -140,4 +143,76 @@ var Styles = struct {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(Colors.Border).
 		Padding(0, 1),
+}
+
+// configToAdaptive converts a config.AdaptiveColor to lipgloss.AdaptiveColor.
+func configToAdaptive(c config.AdaptiveColor) lipgloss.AdaptiveColor {
+	return lipgloss.AdaptiveColor{Light: c.Light, Dark: c.Dark}
+}
+
+// ApplyThemeConfig applies a configuration's theme colors to the global Colors
+// and regenerates Styles to use those colors. This should be called during
+// application initialization, before any UI rendering.
+func ApplyThemeConfig(cfg config.Config) {
+	// Update Colors from config
+	Colors.Primary = configToAdaptive(cfg.Theme.Colors.Primary)
+	Colors.OnPrimary = configToAdaptive(cfg.Theme.Colors.OnPrimary)
+	Colors.Text = configToAdaptive(cfg.Theme.Colors.Text)
+	Colors.TextMuted = configToAdaptive(cfg.Theme.Colors.TextMuted)
+	Colors.Border = configToAdaptive(cfg.Theme.Colors.Border)
+	Colors.Success = configToAdaptive(cfg.Theme.Colors.Success)
+	Colors.Error = configToAdaptive(cfg.Theme.Colors.Error)
+	Colors.Info = configToAdaptive(cfg.Theme.Colors.Info)
+	Colors.OnSuccess = configToAdaptive(cfg.Theme.Colors.OnSuccess)
+	Colors.OnError = configToAdaptive(cfg.Theme.Colors.OnError)
+	Colors.OnInfo = configToAdaptive(cfg.Theme.Colors.OnInfo)
+
+	// Regenerate Styles with new colors
+	rebuildStyles()
+}
+
+// rebuildStyles recreates all styles using the current Colors values.
+// This is called after Colors is updated from configuration.
+func rebuildStyles() {
+	Styles.Selected = lipgloss.NewStyle().
+		Background(Colors.Primary).
+		Foreground(Colors.OnPrimary).
+		Bold(true).
+		Padding(0, 1)
+
+	Styles.Normal = lipgloss.NewStyle().
+		Foreground(Colors.Text).
+		Padding(0, 1)
+
+	Styles.Muted = lipgloss.NewStyle().
+		Foreground(Colors.TextMuted).
+		Italic(true)
+
+	Styles.Help = lipgloss.NewStyle().
+		Foreground(Colors.TextMuted)
+
+	Styles.ListItem.Selected = lipgloss.NewStyle().
+		Foreground(Colors.Primary).
+		Bold(true).
+		PaddingLeft(0).
+		PaddingRight(1)
+
+	Styles.ListItem.Normal = lipgloss.NewStyle().
+		Foreground(Colors.Text).
+		PaddingLeft(0).
+		PaddingRight(1)
+
+	Styles.Box = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Colors.Border).
+		Padding(0, 1)
+}
+
+// LoadAndApplyTheme loads the theme configuration from the default path
+// and applies it to the global styles. Returns any error encountered
+// while loading (invalid YAML), but always applies valid defaults.
+func LoadAndApplyTheme() error {
+	cfg, err := config.LoadConfig(config.DefaultConfigPath())
+	ApplyThemeConfig(cfg)
+	return err
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/ilatopilskij/gwt/internal/config"
 )
 
 // TestColorsUseAdaptiveColor verifies all colors in the palette are AdaptiveColors.
@@ -219,5 +220,154 @@ func TestNoExcessiveDecorations(t *testing.T) {
 	mutedRendered := Styles.Muted.Render("test")
 	if mutedRendered == "" {
 		t.Error("Muted style should render non-empty")
+	}
+}
+
+// TestApplyThemeConfigUpdatesColors verifies ApplyThemeConfig updates Colors.
+func TestApplyThemeConfigUpdatesColors(t *testing.T) {
+	// Save original colors
+	originalPrimary := Colors.Primary
+
+	// Create a custom config
+	cfg := config.DefaultConfig()
+	cfg.Theme.Colors.Primary = config.AdaptiveColor{Light: "#CUSTOM1", Dark: "#CUSTOM2"}
+
+	// Apply the config
+	ApplyThemeConfig(cfg)
+
+	// Verify colors were updated
+	if Colors.Primary.Light != "#CUSTOM1" {
+		t.Errorf("expected Primary.Light to be '#CUSTOM1', got: %s", Colors.Primary.Light)
+	}
+	if Colors.Primary.Dark != "#CUSTOM2" {
+		t.Errorf("expected Primary.Dark to be '#CUSTOM2', got: %s", Colors.Primary.Dark)
+	}
+
+	// Restore original colors
+	Colors.Primary = originalPrimary
+	rebuildStyles()
+}
+
+// TestApplyThemeConfigUpdatesAllColors verifies all colors are updated.
+func TestApplyThemeConfigUpdatesAllColors(t *testing.T) {
+	// Save original colors
+	originalColors := struct {
+		Primary   lipgloss.AdaptiveColor
+		Text      lipgloss.AdaptiveColor
+		TextMuted lipgloss.AdaptiveColor
+		Border    lipgloss.AdaptiveColor
+		Success   lipgloss.AdaptiveColor
+		Error     lipgloss.AdaptiveColor
+		Info      lipgloss.AdaptiveColor
+	}{
+		Primary:   Colors.Primary,
+		Text:      Colors.Text,
+		TextMuted: Colors.TextMuted,
+		Border:    Colors.Border,
+		Success:   Colors.Success,
+		Error:     Colors.Error,
+		Info:      Colors.Info,
+	}
+
+	// Create custom config with all colors changed
+	cfg := config.DefaultConfig()
+	cfg.Theme.Colors.Primary = config.AdaptiveColor{Light: "#AAA001", Dark: "#AAA002"}
+	cfg.Theme.Colors.Text = config.AdaptiveColor{Light: "#BBB001", Dark: "#BBB002"}
+	cfg.Theme.Colors.TextMuted = config.AdaptiveColor{Light: "#CCC001", Dark: "#CCC002"}
+	cfg.Theme.Colors.Border = config.AdaptiveColor{Light: "#DDD001", Dark: "#DDD002"}
+	cfg.Theme.Colors.Success = config.AdaptiveColor{Light: "#EEE001", Dark: "#EEE002"}
+	cfg.Theme.Colors.Error = config.AdaptiveColor{Light: "#FFF001", Dark: "#FFF002"}
+	cfg.Theme.Colors.Info = config.AdaptiveColor{Light: "#111001", Dark: "#111002"}
+
+	ApplyThemeConfig(cfg)
+
+	// Verify each color was updated
+	tests := []struct {
+		name  string
+		got   lipgloss.AdaptiveColor
+		wantL string
+		wantD string
+	}{
+		{"Primary", Colors.Primary, "#AAA001", "#AAA002"},
+		{"Text", Colors.Text, "#BBB001", "#BBB002"},
+		{"TextMuted", Colors.TextMuted, "#CCC001", "#CCC002"},
+		{"Border", Colors.Border, "#DDD001", "#DDD002"},
+		{"Success", Colors.Success, "#EEE001", "#EEE002"},
+		{"Error", Colors.Error, "#FFF001", "#FFF002"},
+		{"Info", Colors.Info, "#111001", "#111002"},
+	}
+
+	for _, tc := range tests {
+		if tc.got.Light != tc.wantL || tc.got.Dark != tc.wantD {
+			t.Errorf("%s: got Light=%s Dark=%s, want Light=%s Dark=%s",
+				tc.name, tc.got.Light, tc.got.Dark, tc.wantL, tc.wantD)
+		}
+	}
+
+	// Restore original colors
+	Colors.Primary = originalColors.Primary
+	Colors.Text = originalColors.Text
+	Colors.TextMuted = originalColors.TextMuted
+	Colors.Border = originalColors.Border
+	Colors.Success = originalColors.Success
+	Colors.Error = originalColors.Error
+	Colors.Info = originalColors.Info
+	rebuildStyles()
+}
+
+// TestApplyThemeConfigRebuildStyles verifies styles are rebuilt after config applied.
+func TestApplyThemeConfigRebuildStyles(t *testing.T) {
+	// Save original primary color
+	originalPrimary := Colors.Primary
+
+	// Create a custom config with a distinctive color
+	cfg := config.DefaultConfig()
+	cfg.Theme.Colors.Primary = config.AdaptiveColor{Light: "#AABBCC", Dark: "#DDEEFF"}
+
+	ApplyThemeConfig(cfg)
+
+	// Verify Styles.ListItem.Selected uses the new color
+	// We can't directly inspect the lipgloss.Style color, but we can verify
+	// that rendering still works
+	rendered := Styles.ListItem.Selected.Render("test")
+	if rendered == "" {
+		t.Error("Styles.ListItem.Selected should render after config applied")
+	}
+
+	// Restore original
+	Colors.Primary = originalPrimary
+	rebuildStyles()
+}
+
+// TestLoadAndApplyThemeNoFile verifies LoadAndApplyTheme works when no config file exists.
+func TestLoadAndApplyThemeNoFile(t *testing.T) {
+	// This should work without errors even if config file doesn't exist
+	// Save original colors
+	originalPrimary := Colors.Primary
+
+	err := LoadAndApplyTheme()
+	// May or may not error depending on file existence, but shouldn't panic
+	_ = err
+
+	// Colors should still be valid
+	if Colors.Primary.Light == "" || Colors.Primary.Dark == "" {
+		t.Error("Colors should be valid after LoadAndApplyTheme")
+	}
+
+	// Restore original
+	Colors.Primary = originalPrimary
+	rebuildStyles()
+}
+
+// TestConfigToAdaptive verifies configToAdaptive conversion.
+func TestConfigToAdaptive(t *testing.T) {
+	cfg := config.AdaptiveColor{Light: "#L12345", Dark: "#D67890"}
+	result := configToAdaptive(cfg)
+
+	if result.Light != "#L12345" {
+		t.Errorf("Light: got %s, want #L12345", result.Light)
+	}
+	if result.Dark != "#D67890" {
+		t.Errorf("Dark: got %s, want #D67890", result.Dark)
 	}
 }

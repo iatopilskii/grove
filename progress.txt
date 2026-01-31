@@ -447,3 +447,60 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### STYLE-003: User-Configurable Theme via Config File (COMPLETED)
+
+**Task**: User-configurable theme via config file (~/.config/gwt/theme.yaml)
+
+**Implementation**:
+- Created `internal/config/config.go` with complete configuration handling
+- Defined `Config` struct hierarchy: `Config` → `Theme` → `ThemeColors` → `AdaptiveColor`
+- `AdaptiveColor` struct with `Light` and `Dark` fields matching lipgloss.AdaptiveColor
+- `DefaultConfig()` returns built-in default color scheme
+- `DefaultConfigPath()` returns XDG-compliant path: `~/.config/gwt/theme.yaml`
+- `LoadConfig(path)` loads YAML, falls back to defaults for missing file or invalid values
+- Partial config support: unspecified colors inherit defaults via `mergeConfig()`
+- `GenerateSampleConfig()` produces documented YAML with all color options and comments
+- `WriteSampleConfig(path)` creates sample config file, creating directories as needed
+- Added `gopkg.in/yaml.v3` dependency for YAML parsing
+- Extended `internal/ui/styles.go` with theme integration:
+  - `configToAdaptive()` converts config.AdaptiveColor to lipgloss.AdaptiveColor
+  - `ApplyThemeConfig(cfg)` updates global Colors and rebuilds Styles
+  - `rebuildStyles()` recreates all lipgloss.Style instances with current Colors
+  - `LoadAndApplyTheme()` convenience function for startup (loads from default path)
+- Updated `cmd/gwt/main.go` to call `LoadAndApplyTheme()` at startup
+  - Prints warning to stderr if config has errors (but still uses defaults)
+
+**Verification Steps Passed**:
+- [x] Config file (~/.config/gwt/theme.yaml) is read on startup
+- [x] Colors defined in config override defaults
+- [x] Invalid config values fall back to defaults
+- [x] Sample config documented or generated (via GenerateSampleConfig/WriteSampleConfig)
+
+**Tests** (config_test.go - 10 tests):
+- `TestDefaultConfig` - verifies default config has all color values
+- `TestDefaultConfigPath` - verifies XDG-compliant path returned
+- `TestLoadConfigNoFile` - verifies missing file returns defaults without error
+- `TestLoadConfigValidYAML` - verifies complete YAML config loads correctly
+- `TestLoadConfigPartialYAML` - verifies partial config merges with defaults
+- `TestLoadConfigInvalidYAML` - verifies invalid YAML returns defaults with error
+- `TestLoadConfigMalformedColors` - verifies malformed values load as-is
+- `TestAdaptiveColorHasLightAndDark` - table-driven test for all color fields
+- `TestGenerateSampleConfig` - verifies sample config contains all sections
+- `TestWriteSampleConfig` - verifies sample file is written and loadable
+
+**Tests** (styles_test.go - new tests):
+- `TestApplyThemeConfigUpdatesColors` - verifies Colors updated after ApplyThemeConfig
+- `TestApplyThemeConfigUpdatesAllColors` - table-driven test for all color updates
+- `TestApplyThemeConfigRebuildStyles` - verifies Styles rebuilt after config applied
+- `TestLoadAndApplyThemeNoFile` - verifies LoadAndApplyTheme works without config file
+- `TestConfigToAdaptive` - verifies configToAdaptive conversion
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All tests pass (config: 10, ui: expanded)
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

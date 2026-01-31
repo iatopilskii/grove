@@ -11,6 +11,12 @@ import (
 )
 
 func main() {
+	// Load and apply theme configuration from ~/.config/gwt/theme.yaml
+	// Invalid config falls back to defaults; missing file is not an error
+	if err := ui.LoadAndApplyTheme(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: theme config error: %v (using defaults)\n", err)
+	}
+
 	app := ui.NewApp()
 	p := tea.NewProgram(app)
 

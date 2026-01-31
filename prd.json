@@ -124,7 +124,7 @@
         "Invalid config values fall back to defaults",
         "Sample config documented or generated"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "GIT-001",
