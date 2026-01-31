@@ -13,6 +13,21 @@ type ListItem struct {
 	ID          string
 	Title       string
 	Description string
+	// Metadata holds additional data associated with this item.
+	// For worktrees, this is a *WorktreeItemData.
+	Metadata interface{}
+}
+
+// WorktreeItemData holds additional worktree-specific data for a list item.
+type WorktreeItemData struct {
+	Path           string
+	Branch         string
+	CommitHash     string
+	IsBare         bool
+	IsDetached     bool
+	ModifiedCount  int
+	StagedCount    int
+	UntrackedCount int
 }
 
 // List is a scrollable list component.

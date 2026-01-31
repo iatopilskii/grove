@@ -415,3 +415,78 @@ func PruneWorktreesDryRun(dir string) (string, error) {
 
 	return strings.TrimSpace(string(output)), nil
 }
+
+// WorktreeStatus contains the status of a worktree including file counts.
+type WorktreeStatus struct {
+	// ModifiedCount is the number of modified but unstaged files.
+	ModifiedCount int
+	// StagedCount is the number of staged files.
+	StagedCount int
+	// UntrackedCount is the number of untracked files.
+	UntrackedCount int
+}
+
+// TotalChanges returns the total number of changes (modified + staged + untracked).
+func (s *WorktreeStatus) TotalChanges() int {
+	return s.ModifiedCount + s.StagedCount + s.UntrackedCount
+}
+
+// IsClean returns true if the worktree has no changes.
+func (s *WorktreeStatus) IsClean() bool {
+	return s.TotalChanges() == 0
+}
+
+// GetWorktreeStatus returns the status of the worktree at the given path.
+// It parses `git status --porcelain` output to count modified, staged, and untracked files.
+func GetWorktreeStatus(path string) (*WorktreeStatus, error) {
+	if !IsGitRepository(path) {
+		return nil, &NotGitRepoError{Path: path}
+	}
+
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = path
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get status: %w", err)
+	}
+
+	return ParseWorktreeStatus(string(output)), nil
+}
+
+// ParseWorktreeStatus parses the output of `git status --porcelain`.
+// The porcelain format uses a two-character status code:
+// - First character: status of the index (staged changes)
+// - Second character: status of the work tree (unstaged changes)
+// - '?' for untracked files
+// - ' ' for no changes in that area
+func ParseWorktreeStatus(output string) *WorktreeStatus {
+	status := &WorktreeStatus{}
+
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		if len(line) < 2 {
+			continue
+		}
+
+		indexStatus := line[0]
+		workTreeStatus := line[1]
+
+		// Untracked files start with "??"
+		if indexStatus == '?' && workTreeStatus == '?' {
+			status.UntrackedCount++
+			continue
+		}
+
+		// Staged changes have a non-space, non-? character in the first position
+		if indexStatus != ' ' && indexStatus != '?' {
+			status.StagedCount++
+		}
+
+		// Modified (unstaged) changes have a non-space character in the second position
+		if workTreeStatus != ' ' && workTreeStatus != '?' {
+			status.ModifiedCount++
+		}
+	}
+
+	return status
+}

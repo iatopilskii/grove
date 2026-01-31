@@ -184,7 +184,7 @@
         "Details pane shows modified/staged file count",
         "Details update when selection changes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "GIT-006",

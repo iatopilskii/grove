@@ -2,6 +2,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -52,25 +53,7 @@ func (d *Details) View() string {
 		// Show placeholder when no item selected
 		content = Styles.Muted.Render("Select an item to view details")
 	} else {
-		// Title with primary color for emphasis
-		titleStyle := lipgloss.NewStyle().
-			Foreground(Colors.Text).
-			Bold(true)
-		title := titleStyle.Render(d.item.Title)
-
-		// Description with muted color
-		descStyle := lipgloss.NewStyle().
-			Foreground(Colors.TextMuted)
-
-		var descLines []string
-		descLines = append(descLines, title)
-		descLines = append(descLines, "")
-
-		if d.item.Description != "" {
-			descLines = append(descLines, descStyle.Render(d.item.Description))
-		}
-
-		content = strings.Join(descLines, "\n")
+		content = d.renderItemDetails()
 	}
 
 	// Use centralized box style with thin rounded border
@@ -84,4 +67,106 @@ func (d *Details) View() string {
 	}
 
 	return boxStyle.Render(content)
+}
+
+// renderItemDetails renders the detailed view for the selected item.
+func (d *Details) renderItemDetails() string {
+	// Title with primary color for emphasis
+	titleStyle := lipgloss.NewStyle().
+		Foreground(Colors.Text).
+		Bold(true)
+	title := titleStyle.Render(d.item.Title)
+
+	// Label style for field names
+	labelStyle := lipgloss.NewStyle().
+		Foreground(Colors.TextMuted).
+		Bold(true)
+
+	// Value style for field values
+	valueStyle := lipgloss.NewStyle().
+		Foreground(Colors.Text)
+
+	var lines []string
+	lines = append(lines, title)
+	lines = append(lines, "")
+
+	// Check if we have worktree metadata
+	if wtData, ok := d.item.Metadata.(*WorktreeItemData); ok && wtData != nil {
+		// Show full path
+		lines = append(lines, labelStyle.Render("Path"))
+		lines = append(lines, valueStyle.Render(wtData.Path))
+		lines = append(lines, "")
+
+		// Show branch name
+		if wtData.IsBare {
+			lines = append(lines, labelStyle.Render("Type"))
+			lines = append(lines, valueStyle.Render("Bare repository"))
+		} else if wtData.IsDetached {
+			lines = append(lines, labelStyle.Render("State"))
+			lines = append(lines, valueStyle.Render("Detached HEAD"))
+			if wtData.CommitHash != "" {
+				lines = append(lines, "")
+				lines = append(lines, labelStyle.Render("Commit"))
+				lines = append(lines, valueStyle.Render(wtData.CommitHash))
+			}
+		} else {
+			lines = append(lines, labelStyle.Render("Branch"))
+			lines = append(lines, valueStyle.Render(wtData.Branch))
+		}
+		lines = append(lines, "")
+
+		// Show status with modified/staged file counts
+		if !wtData.IsBare {
+			lines = append(lines, labelStyle.Render("Status"))
+			statusLine := d.renderStatusLine(wtData)
+			lines = append(lines, statusLine)
+		}
+	} else if d.item.Description != "" {
+		// Fallback to simple description
+		descStyle := lipgloss.NewStyle().
+			Foreground(Colors.TextMuted)
+		lines = append(lines, descStyle.Render(d.item.Description))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// renderStatusLine renders the status line showing modified/staged/untracked counts.
+func (d *Details) renderStatusLine(wtData *WorktreeItemData) string {
+	// Style for clean status
+	cleanStyle := lipgloss.NewStyle().
+		Foreground(Colors.Success)
+
+	// Style for modified files (yellow/warning)
+	modifiedStyle := lipgloss.NewStyle().
+		Foreground(Colors.Error)
+
+	// Style for staged files (green/success)
+	stagedStyle := lipgloss.NewStyle().
+		Foreground(Colors.Success)
+
+	// Style for untracked files (muted)
+	untrackedStyle := lipgloss.NewStyle().
+		Foreground(Colors.TextMuted)
+
+	totalChanges := wtData.ModifiedCount + wtData.StagedCount + wtData.UntrackedCount
+	if totalChanges == 0 {
+		return cleanStyle.Render("✓ Clean")
+	}
+
+	var parts []string
+
+	if wtData.StagedCount > 0 {
+		parts = append(parts, stagedStyle.Render(fmt.Sprintf("%d staged", wtData.StagedCount)))
+	}
+
+	if wtData.ModifiedCount > 0 {
+		parts = append(parts, modifiedStyle.Render(fmt.Sprintf("%d modified", wtData.ModifiedCount)))
+	}
+
+	if wtData.UntrackedCount > 0 {
+		parts = append(parts, untrackedStyle.Render(fmt.Sprintf("%d untracked", wtData.UntrackedCount)))
+	}
+
+	return strings.Join(parts, ", ")
 }

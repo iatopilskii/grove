@@ -693,3 +693,106 @@ func TestListIsInBounds(t *testing.T) {
 		})
 	}
 }
+
+// TestListItemWithMetadata verifies ListItem can hold WorktreeItemData metadata
+func TestListItemWithMetadata(t *testing.T) {
+	metadata := &WorktreeItemData{
+		Path:           "/path/to/worktree",
+		Branch:         "feature-branch",
+		CommitHash:     "abc1234",
+		ModifiedCount:  2,
+		StagedCount:    1,
+		UntrackedCount: 3,
+	}
+
+	item := ListItem{
+		ID:       "/path/to/worktree",
+		Title:    "worktree",
+		Metadata: metadata,
+	}
+
+	// Verify metadata can be retrieved and cast
+	if item.Metadata == nil {
+		t.Error("ListItem.Metadata should not be nil")
+	}
+
+	wtData, ok := item.Metadata.(*WorktreeItemData)
+	if !ok {
+		t.Fatalf("ListItem.Metadata is not *WorktreeItemData, got %T", item.Metadata)
+	}
+
+	if wtData.Path != "/path/to/worktree" {
+		t.Errorf("WorktreeItemData.Path = %q, want /path/to/worktree", wtData.Path)
+	}
+	if wtData.Branch != "feature-branch" {
+		t.Errorf("WorktreeItemData.Branch = %q, want feature-branch", wtData.Branch)
+	}
+	if wtData.ModifiedCount != 2 {
+		t.Errorf("WorktreeItemData.ModifiedCount = %d, want 2", wtData.ModifiedCount)
+	}
+	if wtData.StagedCount != 1 {
+		t.Errorf("WorktreeItemData.StagedCount = %d, want 1", wtData.StagedCount)
+	}
+	if wtData.UntrackedCount != 3 {
+		t.Errorf("WorktreeItemData.UntrackedCount = %d, want 3", wtData.UntrackedCount)
+	}
+}
+
+// TestWorktreeItemDataFields verifies WorktreeItemData struct fields
+func TestWorktreeItemDataFields(t *testing.T) {
+	data := WorktreeItemData{
+		Path:           "/path/to/worktree",
+		Branch:         "main",
+		CommitHash:     "def5678",
+		IsBare:         true,
+		IsDetached:     false,
+		ModifiedCount:  5,
+		StagedCount:    3,
+		UntrackedCount: 7,
+	}
+
+	if data.Path != "/path/to/worktree" {
+		t.Errorf("Path = %q, want /path/to/worktree", data.Path)
+	}
+	if data.Branch != "main" {
+		t.Errorf("Branch = %q, want main", data.Branch)
+	}
+	if data.CommitHash != "def5678" {
+		t.Errorf("CommitHash = %q, want def5678", data.CommitHash)
+	}
+	if !data.IsBare {
+		t.Error("IsBare should be true")
+	}
+	if data.IsDetached {
+		t.Error("IsDetached should be false")
+	}
+	if data.ModifiedCount != 5 {
+		t.Errorf("ModifiedCount = %d, want 5", data.ModifiedCount)
+	}
+	if data.StagedCount != 3 {
+		t.Errorf("StagedCount = %d, want 3", data.StagedCount)
+	}
+	if data.UntrackedCount != 7 {
+		t.Errorf("UntrackedCount = %d, want 7", data.UntrackedCount)
+	}
+}
+
+// TestListItemWithNilMetadata verifies ListItem works without metadata
+func TestListItemWithNilMetadata(t *testing.T) {
+	item := ListItem{
+		ID:          "1",
+		Title:       "Simple Item",
+		Description: "Just a description",
+		Metadata:    nil,
+	}
+
+	if item.Metadata != nil {
+		t.Error("ListItem.Metadata should be nil")
+	}
+
+	// Type assertion should fail gracefully
+	_, ok := item.Metadata.(*WorktreeItemData)
+	if ok {
+		t.Error("Type assertion on nil should return false")
+	}
+}

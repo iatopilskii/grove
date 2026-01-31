@@ -127,23 +127,46 @@ func (a *App) loadWorktrees() {
 	}
 }
 
-// worktreeToListItem converts a git.Worktree to a ListItem.
+// worktreeToListItem converts a git.Worktree to a ListItem with status information.
 func worktreeToListItem(wt git.Worktree) ListItem {
+	// Get worktree status (modified/staged file counts)
+	var modifiedCount, stagedCount, untrackedCount int
+	if !wt.IsBare {
+		status, err := git.GetWorktreeStatus(wt.Path)
+		if err == nil && status != nil {
+			modifiedCount = status.ModifiedCount
+			stagedCount = status.StagedCount
+			untrackedCount = status.UntrackedCount
+		}
+	}
+
+	// Build metadata
+	metadata := &WorktreeItemData{
+		Path:           wt.Path,
+		Branch:         wt.Branch,
+		CommitHash:     wt.CommitHash,
+		IsBare:         wt.IsBare,
+		IsDetached:     wt.IsDetached,
+		ModifiedCount:  modifiedCount,
+		StagedCount:    stagedCount,
+		UntrackedCount: untrackedCount,
+	}
+
+	// Build simple description for backwards compatibility
 	var description string
 	if wt.IsBare {
-		description = "Bare repository at " + wt.Path
+		description = "Bare repository"
 	} else if wt.IsDetached {
-		description = "Detached HEAD at " + wt.Path
+		description = "Detached HEAD"
 	} else if wt.Branch != "" {
-		description = "Branch: " + wt.Branch + "\nPath: " + wt.Path
-	} else {
-		description = "Path: " + wt.Path
+		description = wt.Branch
 	}
 
 	return ListItem{
 		ID:          wt.Path,
 		Title:       wt.Name(),
 		Description: description,
+		Metadata:    metadata,
 	}
 }
 

@@ -1255,6 +1255,285 @@ func TestPruneWorktreesWithStaleEntry(t *testing.T) {
 	}
 }
 
+// TestWorktreeStatusFields verifies the WorktreeStatus struct fields and methods.
+func TestWorktreeStatusFields(t *testing.T) {
+	status := WorktreeStatus{
+		ModifiedCount:  3,
+		StagedCount:    2,
+		UntrackedCount: 5,
+	}
+
+	if status.ModifiedCount != 3 {
+		t.Errorf("Expected ModifiedCount 3, got %d", status.ModifiedCount)
+	}
+	if status.StagedCount != 2 {
+		t.Errorf("Expected StagedCount 2, got %d", status.StagedCount)
+	}
+	if status.UntrackedCount != 5 {
+		t.Errorf("Expected UntrackedCount 5, got %d", status.UntrackedCount)
+	}
+	if status.TotalChanges() != 10 {
+		t.Errorf("Expected TotalChanges 10, got %d", status.TotalChanges())
+	}
+	if status.IsClean() {
+		t.Error("Expected IsClean false, got true")
+	}
+}
+
+// TestWorktreeStatusIsClean tests the IsClean method.
+func TestWorktreeStatusIsClean(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   WorktreeStatus
+		expected bool
+	}{
+		{
+			name:     "all zeros",
+			status:   WorktreeStatus{ModifiedCount: 0, StagedCount: 0, UntrackedCount: 0},
+			expected: true,
+		},
+		{
+			name:     "modified only",
+			status:   WorktreeStatus{ModifiedCount: 1, StagedCount: 0, UntrackedCount: 0},
+			expected: false,
+		},
+		{
+			name:     "staged only",
+			status:   WorktreeStatus{ModifiedCount: 0, StagedCount: 1, UntrackedCount: 0},
+			expected: false,
+		},
+		{
+			name:     "untracked only",
+			status:   WorktreeStatus{ModifiedCount: 0, StagedCount: 0, UntrackedCount: 1},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.status.IsClean(); got != tt.expected {
+				t.Errorf("IsClean() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestParseWorktreeStatus tests parsing of git status --porcelain output.
+func TestParseWorktreeStatus(t *testing.T) {
+	tests := []struct {
+		name              string
+		input             string
+		expectedModified  int
+		expectedStaged    int
+		expectedUntracked int
+	}{
+		{
+			name:              "empty output",
+			input:             "",
+			expectedModified:  0,
+			expectedStaged:    0,
+			expectedUntracked: 0,
+		},
+		{
+			name:              "single modified file",
+			input:             " M file.txt\n",
+			expectedModified:  1,
+			expectedStaged:    0,
+			expectedUntracked: 0,
+		},
+		{
+			name:              "single staged file",
+			input:             "M  file.txt\n",
+			expectedModified:  0,
+			expectedStaged:    1,
+			expectedUntracked: 0,
+		},
+		{
+			name:              "single untracked file",
+			input:             "?? file.txt\n",
+			expectedModified:  0,
+			expectedStaged:    0,
+			expectedUntracked: 1,
+		},
+		{
+			name:              "staged and modified same file",
+			input:             "MM file.txt\n",
+			expectedModified:  1,
+			expectedStaged:    1,
+			expectedUntracked: 0,
+		},
+		{
+			name:              "added file",
+			input:             "A  file.txt\n",
+			expectedModified:  0,
+			expectedStaged:    1,
+			expectedUntracked: 0,
+		},
+		{
+			name:              "deleted file",
+			input:             "D  file.txt\n",
+			expectedModified:  0,
+			expectedStaged:    1,
+			expectedUntracked: 0,
+		},
+		{
+			name:              "renamed file",
+			input:             "R  old.txt -> new.txt\n",
+			expectedModified:  0,
+			expectedStaged:    1,
+			expectedUntracked: 0,
+		},
+		{
+			name: "multiple files",
+			input: ` M modified.txt
+M  staged.txt
+?? untracked.txt
+MM both.txt
+A  added.txt
+`,
+			expectedModified:  2, // modified.txt and both.txt
+			expectedStaged:    3, // staged.txt, both.txt, and added.txt
+			expectedUntracked: 1, // untracked.txt
+		},
+		{
+			name:              "deleted in worktree",
+			input:             " D file.txt\n",
+			expectedModified:  1,
+			expectedStaged:    0,
+			expectedUntracked: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := ParseWorktreeStatus(tt.input)
+
+			if status.ModifiedCount != tt.expectedModified {
+				t.Errorf("ModifiedCount = %d, want %d", status.ModifiedCount, tt.expectedModified)
+			}
+			if status.StagedCount != tt.expectedStaged {
+				t.Errorf("StagedCount = %d, want %d", status.StagedCount, tt.expectedStaged)
+			}
+			if status.UntrackedCount != tt.expectedUntracked {
+				t.Errorf("UntrackedCount = %d, want %d", status.UntrackedCount, tt.expectedUntracked)
+			}
+		})
+	}
+}
+
+// TestGetWorktreeStatusInNonGitDir tests GetWorktreeStatus in a non-git directory.
+func TestGetWorktreeStatusInNonGitDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	_, err = GetWorktreeStatus(tmpDir)
+	if err == nil {
+		t.Error("Expected error for non-git directory, got nil")
+	}
+	if !IsNotGitRepoError(err) {
+		t.Errorf("Expected NotGitRepoError, got: %v", err)
+	}
+}
+
+// TestGetWorktreeStatusIntegration tests GetWorktreeStatus with a real git repository.
+func TestGetWorktreeStatusIntegration(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("test"), 0644)
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Clean state - no uncommitted changes
+	status, err := GetWorktreeStatus(tmpDir)
+	if err != nil {
+		t.Fatalf("GetWorktreeStatus failed: %v", err)
+	}
+	if !status.IsClean() {
+		t.Errorf("Expected clean status, got: modified=%d, staged=%d, untracked=%d",
+			status.ModifiedCount, status.StagedCount, status.UntrackedCount)
+	}
+
+	// Create an untracked file
+	untrackedFile := filepath.Join(tmpDir, "untracked.txt")
+	if err := os.WriteFile(untrackedFile, []byte("untracked"), 0644); err != nil {
+		t.Fatalf("Failed to create untracked file: %v", err)
+	}
+
+	status, err = GetWorktreeStatus(tmpDir)
+	if err != nil {
+		t.Fatalf("GetWorktreeStatus failed: %v", err)
+	}
+	if status.UntrackedCount != 1 {
+		t.Errorf("Expected 1 untracked file, got %d", status.UntrackedCount)
+	}
+
+	// Modify an existing tracked file
+	if err := os.WriteFile(testFile, []byte("modified content"), 0644); err != nil {
+		t.Fatalf("Failed to modify test file: %v", err)
+	}
+
+	status, err = GetWorktreeStatus(tmpDir)
+	if err != nil {
+		t.Fatalf("GetWorktreeStatus failed: %v", err)
+	}
+	if status.ModifiedCount != 1 {
+		t.Errorf("Expected 1 modified file, got %d", status.ModifiedCount)
+	}
+
+	// Stage the modified file
+	cmd = exec.Command("git", "add", "test.txt")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+
+	status, err = GetWorktreeStatus(tmpDir)
+	if err != nil {
+		t.Fatalf("GetWorktreeStatus failed: %v", err)
+	}
+	if status.StagedCount != 1 {
+		t.Errorf("Expected 1 staged file, got %d", status.StagedCount)
+	}
+	if status.ModifiedCount != 0 {
+		t.Errorf("Expected 0 modified files after staging, got %d", status.ModifiedCount)
+	}
+}
+
 // TestPruneWorktreesDryRun tests the dry-run mode of pruning.
 func TestPruneWorktreesDryRun(t *testing.T) {
 	// Check if git is available

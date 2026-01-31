@@ -808,3 +808,71 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### GIT-005: Show Worktree Details (COMPLETED)
+
+**Task**: Show worktree details: path, branch, status with modified/staged file counts
+
+**Implementation**:
+- Extended `internal/git/worktree.go` with status functions:
+  - `WorktreeStatus` struct with `ModifiedCount`, `StagedCount`, `UntrackedCount` fields
+  - `TotalChanges()` method returns sum of all changes
+  - `IsClean()` method returns true if no changes
+  - `GetWorktreeStatus(path)` retrieves status via `git status --porcelain`
+  - `ParseWorktreeStatus(output)` parses porcelain format status output
+- Extended `internal/ui/list.go` with metadata support:
+  - `WorktreeItemData` struct holds worktree-specific data (path, branch, commit, status counts)
+  - `ListItem.Metadata` field (interface{}) holds arbitrary item-specific data
+- Updated `internal/ui/app.go` to populate metadata:
+  - `worktreeToListItem()` now fetches status via `git.GetWorktreeStatus()`
+  - Populates `WorktreeItemData` with path, branch, commit hash, and status counts
+- Enhanced `internal/ui/details.go` to display rich worktree information:
+  - `renderItemDetails()` method for structured detail rendering
+  - Shows full path with label
+  - Shows branch name (or "Bare repository" / "Detached HEAD" for special cases)
+  - Shows commit hash for detached HEAD state
+  - `renderStatusLine()` shows formatted status:
+    - "✓ Clean" for worktrees with no changes
+    - "X staged, Y modified, Z untracked" with color-coded counts
+  - Staged files shown in green (success color)
+  - Modified files shown in red (error color)
+  - Untracked files shown in muted color
+  - Falls back to simple description if no metadata
+
+**Verification Steps Passed**:
+- [x] Details pane shows full path (via WorktreeItemData.Path)
+- [x] Details pane shows branch name (via WorktreeItemData.Branch)
+- [x] Details pane shows modified/staged file count (via status line rendering)
+- [x] Details update when selection changes (existing functionality preserved)
+
+**Tests** (worktree_test.go - 7 new tests):
+- `TestWorktreeStatusFields` - verifies WorktreeStatus struct fields and methods
+- `TestWorktreeStatusIsClean` - table-driven tests for IsClean() method
+- `TestParseWorktreeStatus` - table-driven tests for parsing porcelain output (10 sub-tests)
+- `TestGetWorktreeStatusInNonGitDir` - verifies error for non-git directory
+- `TestGetWorktreeStatusIntegration` - integration test with real git repo
+
+**Tests** (details_test.go - 11 new tests):
+- `TestDetailsViewWithWorktreeMetadata` - verifies metadata display
+- `TestDetailsViewShowsCleanStatus` - verifies "Clean" status for no changes
+- `TestDetailsViewShowsModifiedCount` - verifies modified count display
+- `TestDetailsViewShowsStagedCount` - verifies staged count display
+- `TestDetailsViewShowsUntrackedCount` - verifies untracked count display
+- `TestDetailsViewShowsBareRepository` - verifies bare repository handling
+- `TestDetailsViewShowsDetachedHead` - verifies detached HEAD display
+- `TestDetailsViewFallbackToDescription` - verifies fallback without metadata
+- `TestDetailsViewMultipleStatusCounts` - verifies combined status display
+
+**Tests** (list_test.go - 3 new tests):
+- `TestListItemWithMetadata` - verifies ListItem can hold WorktreeItemData
+- `TestWorktreeItemDataFields` - verifies WorktreeItemData struct fields
+- `TestListItemWithNilMetadata` - verifies ListItem works without metadata
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 401 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+
