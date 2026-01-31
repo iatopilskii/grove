@@ -362,3 +362,386 @@ func TestGetCurrentDirectory(t *testing.T) {
 		t.Errorf("Expected absolute path, got: %s", dir)
 	}
 }
+
+// TestWorktreeAddError verifies the error type and message.
+func TestWorktreeAddError(t *testing.T) {
+	err := &WorktreeAddError{
+		Path:   "/path/to/worktree",
+		Branch: "feature",
+		Reason: "branch already exists",
+	}
+
+	expected := "failed to add worktree at /path/to/worktree for branch feature: branch already exists"
+	if err.Error() != expected {
+		t.Errorf("Expected error message '%s', got '%s'", expected, err.Error())
+	}
+}
+
+// TestAddWorktreeOptions verifies the options struct.
+func TestAddWorktreeOptions(t *testing.T) {
+	opts := AddWorktreeOptions{
+		Path:         "/path/to/worktree",
+		Branch:       "feature",
+		CreateBranch: true,
+		BaseBranch:   "main",
+	}
+
+	if opts.Path != "/path/to/worktree" {
+		t.Errorf("Expected Path '/path/to/worktree', got '%s'", opts.Path)
+	}
+	if opts.Branch != "feature" {
+		t.Errorf("Expected Branch 'feature', got '%s'", opts.Branch)
+	}
+	if !opts.CreateBranch {
+		t.Error("Expected CreateBranch true, got false")
+	}
+	if opts.BaseBranch != "main" {
+		t.Errorf("Expected BaseBranch 'main', got '%s'", opts.BaseBranch)
+	}
+}
+
+// TestAddWorktreeInNonGitDir tests AddWorktree in a non-git directory.
+func TestAddWorktreeInNonGitDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	err = AddWorktree(tmpDir, AddWorktreeOptions{
+		Path:         "/path/to/worktree",
+		Branch:       "feature",
+		CreateBranch: true,
+	})
+
+	if err == nil {
+		t.Error("Expected error for non-git directory, got nil")
+	}
+	if !IsNotGitRepoError(err) {
+		t.Errorf("Expected NotGitRepoError, got: %v", err)
+	}
+}
+
+// TestAddWorktreeEmptyPath tests AddWorktree with empty path.
+func TestAddWorktreeEmptyPath(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	err = AddWorktree(tmpDir, AddWorktreeOptions{
+		Path:         "",
+		Branch:       "feature",
+		CreateBranch: true,
+	})
+
+	if err == nil {
+		t.Error("Expected error for empty path, got nil")
+	}
+
+	addErr, ok := err.(*WorktreeAddError)
+	if !ok {
+		t.Fatalf("Expected WorktreeAddError, got: %T", err)
+	}
+	if addErr.Reason != "path is required" {
+		t.Errorf("Expected reason 'path is required', got '%s'", addErr.Reason)
+	}
+}
+
+// TestAddWorktreeNoBranchWithoutCreate tests AddWorktree without branch when not creating.
+func TestAddWorktreeNoBranchWithoutCreate(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	err = AddWorktree(tmpDir, AddWorktreeOptions{
+		Path:         "/path/to/worktree",
+		Branch:       "",
+		CreateBranch: false,
+	})
+
+	if err == nil {
+		t.Error("Expected error for empty branch, got nil")
+	}
+
+	addErr, ok := err.(*WorktreeAddError)
+	if !ok {
+		t.Fatalf("Expected WorktreeAddError, got: %T", err)
+	}
+	if addErr.Reason != "branch is required when not creating a new branch" {
+		t.Errorf("Expected reason about branch required, got '%s'", addErr.Reason)
+	}
+}
+
+// TestAddWorktreeIntegration tests creating a worktree with a new branch.
+func TestAddWorktreeIntegration(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit (required for worktrees)
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Create worktree path
+	worktreePath := filepath.Join(tmpDir, "..", "worktree-add-test")
+	defer os.RemoveAll(worktreePath)
+
+	err = AddWorktree(tmpDir, AddWorktreeOptions{
+		Path:         worktreePath,
+		Branch:       "new-feature",
+		CreateBranch: true,
+	})
+
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	// Verify the worktree was created
+	worktrees, err := ListWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorktrees failed: %v", err)
+	}
+
+	found := false
+	for _, wt := range worktrees {
+		if wt.Branch == "new-feature" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Did not find new-feature worktree in list: %+v", worktrees)
+	}
+}
+
+// TestAddWorktreeWithExistingBranch tests creating a worktree with an existing branch.
+func TestAddWorktreeWithExistingBranch(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("test"), 0644)
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Create a branch
+	cmd = exec.Command("git", "branch", "existing-branch")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git branch failed: %v", err)
+	}
+
+	// Create worktree using the existing branch
+	worktreePath := filepath.Join(tmpDir, "..", "worktree-existing-test")
+	defer os.RemoveAll(worktreePath)
+
+	err = AddWorktree(tmpDir, AddWorktreeOptions{
+		Path:         worktreePath,
+		Branch:       "existing-branch",
+		CreateBranch: false,
+	})
+
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	// Verify the worktree was created
+	worktrees, err := ListWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorktrees failed: %v", err)
+	}
+
+	found := false
+	for _, wt := range worktrees {
+		if wt.Branch == "existing-branch" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("Did not find existing-branch worktree in list: %+v", worktrees)
+	}
+}
+
+// TestListBranchesInNonGitDir tests ListBranches in a non-git directory.
+func TestListBranchesInNonGitDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	_, err = ListBranches(tmpDir)
+	if err == nil {
+		t.Error("Expected error for non-git directory, got nil")
+	}
+	if !IsNotGitRepoError(err) {
+		t.Errorf("Expected NotGitRepoError, got: %v", err)
+	}
+}
+
+// TestListBranchesIntegration tests listing branches in a git repository.
+func TestListBranchesIntegration(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("test"), 0644)
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Create additional branches
+	cmd = exec.Command("git", "branch", "feature-one")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "branch", "feature-two")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// List branches
+	branches, err := ListBranches(tmpDir)
+	if err != nil {
+		t.Fatalf("ListBranches failed: %v", err)
+	}
+
+	if len(branches) < 3 {
+		t.Errorf("Expected at least 3 branches, got %d", len(branches))
+	}
+
+	// Check for expected branches
+	expectedBranches := []string{"feature-one", "feature-two"}
+	for _, expected := range expectedBranches {
+		found := false
+		for _, b := range branches {
+			if b == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected to find branch '%s' in list: %+v", expected, branches)
+		}
+	}
+}

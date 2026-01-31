@@ -977,3 +977,191 @@ func TestAppViewShowsWorktreeList(t *testing.T) {
 		t.Error("View should not show git error in a git repository")
 	}
 }
+
+// TestAppHasCreateForm verifies App has createForm component
+func TestAppHasCreateForm(t *testing.T) {
+	app := NewApp()
+	if app.CreateForm() == nil {
+		t.Error("App should have createForm component")
+	}
+}
+
+// TestAppNKeyOpensCreateForm verifies 'n' key opens create form on Worktrees tab
+func TestAppNKeyOpensCreateForm(t *testing.T) {
+	app := NewApp()
+	if !app.IsInGitRepo() {
+		t.Skip("Test must be run in a git repository")
+	}
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app.tabs.SetActive(TabWorktrees)
+
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+
+	if !app.createForm.Visible() {
+		t.Error("'n' key should open create form on Worktrees tab")
+	}
+}
+
+// TestAppNKeyDoesNotOpenOnNonWorktreesTabs verifies 'n' doesn't open form on other tabs
+func TestAppNKeyDoesNotOpenOnNonWorktreesTabs(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app.tabs.SetActive(TabBranches)
+
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+
+	if app.createForm.Visible() {
+		t.Error("'n' key should not open create form on Branches tab")
+	}
+
+	app.tabs.SetActive(TabSettings)
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+
+	if app.createForm.Visible() {
+		t.Error("'n' key should not open create form on Settings tab")
+	}
+}
+
+// TestAppNKeyDoesNotOpenOnGitError verifies 'n' doesn't open form when git error
+func TestAppNKeyDoesNotOpenOnGitError(t *testing.T) {
+	app := NewAppWithItems(nil)
+	app.gitError = &git.NotGitRepoError{Path: "/tmp/test"}
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+
+	if app.createForm.Visible() {
+		t.Error("'n' key should not open create form when not in git repo")
+	}
+}
+
+// TestAppCreateFormRoutesKeys verifies keys go to create form when visible
+func TestAppCreateFormRoutesKeys(t *testing.T) {
+	app := NewApp()
+	if !app.IsInGitRepo() {
+		t.Skip("Test must be run in a git repository")
+	}
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open create form
+	app.createForm.Show()
+
+	// Type in the form
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a', 'b', 'c'}})
+
+	if app.createForm.Branch() != "abc" {
+		t.Errorf("Keys should be routed to create form, branch = '%s'", app.createForm.Branch())
+	}
+}
+
+// TestAppCreateFormEscapeCloses verifies Escape closes create form
+func TestAppCreateFormEscapeCloses(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open create form
+	app.createForm.Show()
+
+	// Press Escape
+	app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if app.createForm.Visible() {
+		t.Error("Escape should close create form")
+	}
+}
+
+// TestAppCtrlCQuitsEvenWithFormOpen verifies Ctrl+C quits even with form open
+func TestAppCtrlCQuitsEvenWithFormOpen(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open create form
+	app.createForm.Show()
+
+	// Press Ctrl+C
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+
+	if !app.quitting {
+		t.Error("Ctrl+C should set quitting to true even with form open")
+	}
+	if cmd == nil {
+		t.Error("Ctrl+C should return quit command")
+	}
+}
+
+// TestAppViewShowsCreateForm verifies View includes create form when visible
+func TestAppViewShowsCreateForm(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open create form
+	app.createForm.Show()
+
+	view := app.View()
+
+	if !strings.Contains(view, "Create New Worktree") {
+		t.Error("View should show create form title")
+	}
+	if !strings.Contains(view, "Branch name:") {
+		t.Error("View should show branch field")
+	}
+}
+
+// TestAppViewHelpIncludesNewKey verifies help text includes 'n' key
+func TestAppViewHelpIncludesNewKey(t *testing.T) {
+	app := NewApp()
+	view := app.View()
+
+	if !strings.Contains(view, "n: new worktree") {
+		t.Error("Help text should include 'n: new worktree' hint")
+	}
+}
+
+// TestAppCreateFormCancelledMsg verifies cancel message is handled
+func TestAppCreateFormCancelledMsg(t *testing.T) {
+	app := NewApp()
+	app.createForm.Show()
+
+	// Should not panic
+	app.Update(CreateFormCancelledMsg{})
+
+	// Form should be hidden (handled in the form itself)
+	// Just verify the message doesn't cause issues
+}
+
+// TestAppCreateFormSubmittedSuccess verifies successful form submission
+func TestAppCreateFormSubmittedSuccess(t *testing.T) {
+	app := NewApp()
+	if !app.IsInGitRepo() {
+		t.Skip("Test must be run in a git repository")
+	}
+
+	// Note: We can't easily test actual worktree creation without modifying the git repo
+	// So we'll just verify the handler doesn't panic and shows appropriate feedback
+
+	// Send a form submission (this will fail due to invalid path, but tests the handler)
+	app.Update(CreateFormSubmittedMsg{
+		Result: CreateFormResult{
+			Branch:       "test-branch",
+			Path:         "/nonexistent/path",
+			CreateBranch: true,
+		},
+	})
+
+	if !app.feedback.Visible() {
+		t.Error("Form submission should show feedback")
+	}
+}
+
+// TestAppCreateFormTabNavigation verifies Tab key in form
+func TestAppCreateFormTabNavigation(t *testing.T) {
+	app := NewApp()
+	app.createForm.Show()
+
+	// Press Tab
+	app.Update(tea.KeyMsg{Type: tea.KeyTab})
+
+	if app.createForm.Focused() != FieldPath {
+		t.Error("Tab should move focus to path field")
+	}
+}

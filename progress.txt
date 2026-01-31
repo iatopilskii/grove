@@ -504,6 +504,105 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### GIT-002: Create New Worktree from Existing or New Branch (COMPLETED)
+
+**Task**: Create new worktree from existing or new branch
+
+**Implementation**:
+- Extended `internal/git/worktree.go` with worktree creation functions:
+  - `AddWorktreeOptions` struct with Path, Branch, CreateBranch, BaseBranch fields
+  - `AddWorktree(dir, opts)` creates new worktree via `git worktree add`
+  - Supports creating new branches with `-b` flag
+  - Supports using existing branches
+  - `WorktreeAddError` for descriptive error messages
+  - `ListBranches(dir)` lists all local branches
+- Created `internal/ui/createform.go` with CreateForm modal component:
+  - Three fields: branch name, worktree path, create new branch checkbox
+  - Tab/Shift+Tab navigation between fields
+  - Left/Right arrow key cursor movement in text fields
+  - Space key toggles checkbox
+  - Enter key validates and submits form
+  - Escape key cancels and closes form
+  - Validation: requires branch name and path
+  - Error message display for invalid input
+  - Visual cursor indicator in focused text fields
+- Integrated CreateForm into App:
+  - Press 'n' on Worktrees tab opens create form
+  - Form only opens when in a valid git repository
+  - CreateFormSubmittedMsg triggers `git.AddWorktree()`
+  - Success/error feedback shown via Feedback component
+  - Worktree list refreshes automatically after creation
+  - CreateFormCancelledMsg handled (form closes, no action)
+- Updated help text to include 'n: new worktree'
+- Ctrl+C quits even with create form open
+
+**Verification Steps Passed**:
+- [x] User can input branch name and path (form with two text fields)
+- [x] Worktree created via git worktree add (uses AddWorktree function)
+- [x] New worktree appears in list after creation (loadWorktrees called on success)
+- [x] Error shown if branch/path invalid (validation + git error feedback)
+
+**Tests** (worktree_test.go - new tests):
+- `TestWorktreeAddError` - verifies error type and message
+- `TestAddWorktreeOptions` - verifies options struct fields
+- `TestAddWorktreeInNonGitDir` - verifies NotGitRepoError for non-git directory
+- `TestAddWorktreeEmptyPath` - verifies path is required
+- `TestAddWorktreeNoBranchWithoutCreate` - verifies branch required when not creating
+- `TestAddWorktreeIntegration` - integration test creating worktree with new branch
+- `TestAddWorktreeWithExistingBranch` - integration test with existing branch
+- `TestListBranchesInNonGitDir` - verifies error for non-git directory
+- `TestListBranchesIntegration` - integration test listing branches
+
+**Tests** (createform_test.go - 32 tests):
+- `TestNewCreateForm` - verifies constructor
+- `TestCreateFormShow` - verifies Show resets fields and makes visible
+- `TestCreateFormHide` - verifies Hide closes form
+- `TestCreateFormSetSize` - verifies dimension setting
+- `TestCreateFormSetError` - verifies error setting
+- `TestCreateFormFocusNext` - verifies Tab navigation with wrap
+- `TestCreateFormFocusPrev` - verifies Shift+Tab navigation with wrap
+- `TestCreateFormInsertChar` - verifies character insertion
+- `TestCreateFormDeleteChar` - verifies backspace
+- `TestCreateFormValidate` - table-driven validation tests
+- `TestCreateFormUpdateEscape` - verifies Escape closes form
+- `TestCreateFormUpdateTab` - verifies Tab key navigation
+- `TestCreateFormUpdateBackspace` - verifies backspace handling
+- `TestCreateFormUpdateArrows` - verifies cursor movement
+- `TestCreateFormUpdateSpace` - verifies checkbox toggle
+- `TestCreateFormUpdateRunes` - verifies character input
+- `TestCreateFormUpdateEnterValid` - verifies valid submission
+- `TestCreateFormUpdateEnterInvalid` - verifies invalid shows error
+- `TestCreateFormUpdateWhenHidden` - verifies no action when hidden
+- `TestCreateFormView` - verifies view renders correctly
+- `TestCreateFormViewWhenHidden` - verifies empty when hidden
+- `TestCreateFormViewShowsError` - verifies error display
+- `TestCreateFormViewCheckboxState` - verifies checkbox rendering
+- `TestCreateFormRenderInputWithCursor` - table-driven cursor rendering tests
+- `TestCreateFormFieldConstants` - verifies field constants are distinct
+
+**Tests** (app_test.go - new tests):
+- `TestAppHasCreateForm` - verifies App has createForm component
+- `TestAppNKeyOpensCreateForm` - verifies 'n' opens form on Worktrees tab
+- `TestAppNKeyDoesNotOpenOnNonWorktreesTabs` - verifies 'n' only works on Worktrees
+- `TestAppNKeyDoesNotOpenOnGitError` - verifies 'n' disabled when not in git repo
+- `TestAppCreateFormRoutesKeys` - verifies keys routed to form when visible
+- `TestAppCreateFormEscapeCloses` - verifies Escape closes form
+- `TestAppCtrlCQuitsEvenWithFormOpen` - verifies Ctrl+C override
+- `TestAppViewShowsCreateForm` - verifies form appears in view
+- `TestAppViewHelpIncludesNewKey` - verifies help text update
+- `TestAppCreateFormCancelledMsg` - verifies cancel message handled
+- `TestAppCreateFormSubmittedSuccess` - verifies form submission
+- `TestAppCreateFormTabNavigation` - verifies Tab in form
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+
 ### GIT-001: List All Git Worktrees in Current Repository (COMPLETED)
 
 **Task**: List all git worktrees in current repository

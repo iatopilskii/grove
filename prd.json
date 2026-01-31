@@ -148,7 +148,7 @@
         "New worktree appears in list after creation",
         "Error shown if branch/path invalid"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "GIT-003",

@@ -25,6 +25,8 @@ type App struct {
 	actionMenu *ActionMenu
 	// feedback is the feedback message component
 	feedback *Feedback
+	// createForm is the worktree creation form modal
+	createForm *CreateForm
 	// width is the terminal width
 	width int
 	// height is the terminal height
@@ -52,6 +54,7 @@ func NewAppWithPath(path string) *App {
 		details:    NewDetails(),
 		actionMenu: NewActionMenu(),
 		feedback:   NewFeedback(),
+		createForm: NewCreateForm(),
 		repoPath:   path,
 	}
 
@@ -89,6 +92,7 @@ func NewAppWithItems(items []ListItem) *App {
 		details:    details,
 		actionMenu: NewActionMenu(),
 		feedback:   NewFeedback(),
+		createForm: NewCreateForm(),
 	}
 }
 
@@ -168,13 +172,31 @@ func (a *App) Init() tea.Cmd {
 // Update handles incoming messages and updates the model accordingly.
 // It returns the updated model and any command to execute.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// Handle action execution results
+	// Handle action execution results and form submissions
 	switch msg := msg.(type) {
 	case ActionExecutedMsg:
 		return a.handleActionExecuted(msg)
 	case ClearFeedbackMsg:
 		a.feedback.Update(msg)
 		return a, nil
+	case CreateFormSubmittedMsg:
+		return a.handleCreateFormSubmitted(msg)
+	case CreateFormCancelledMsg:
+		// Form was cancelled, nothing to do
+		return a, nil
+	}
+
+	// If create form is visible, route all key events to it
+	if a.createForm.Visible() {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			// Allow Ctrl+C to quit even with form open
+			if keyMsg.Type == tea.KeyCtrlC {
+				a.quitting = true
+				return a, tea.Quit
+			}
+			cmd := a.createForm.Update(keyMsg)
+			return a, cmd
+		}
 	}
 
 	// If action menu is visible, route all key events to it
@@ -233,6 +255,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case 'q':
 					a.quitting = true
 					return a, tea.Quit
+				case 'n':
+					// Open create form on Worktrees tab
+					if a.tabs.Active() == TabWorktrees && !git.IsNotGitRepoError(a.gitError) {
+						a.createForm.Show()
+					}
+					return a, nil
 				case 'j', 'k':
 					// Handle vim-style navigation
 					if a.tabs.Active() == TabWorktrees || a.tabs.Active() == TabBranches {
@@ -288,6 +316,32 @@ func (a *App) handleActionExecuted(msg ActionExecutedMsg) (tea.Model, tea.Cmd) {
 		cmd := a.feedback.ShowError("Unknown action: " + msg.Action.ID)
 		return a, cmd
 	}
+}
+
+// handleCreateFormSubmitted processes the submitted create worktree form.
+func (a *App) handleCreateFormSubmitted(msg CreateFormSubmittedMsg) (tea.Model, tea.Cmd) {
+	opts := git.AddWorktreeOptions{
+		Path:         msg.Result.Path,
+		Branch:       msg.Result.Branch,
+		CreateBranch: msg.Result.CreateBranch,
+	}
+
+	err := git.AddWorktree(a.repoPath, opts)
+	if err != nil {
+		cmd := a.feedback.ShowError("Failed to create worktree: " + err.Error())
+		return a, cmd
+	}
+
+	// Refresh the worktree list
+	a.loadWorktrees()
+
+	cmd := a.feedback.ShowSuccess("Created worktree: " + msg.Result.Branch + " at " + msg.Result.Path)
+	return a, cmd
+}
+
+// CreateForm returns the create form component for testing.
+func (a *App) CreateForm() *CreateForm {
+	return a.createForm
 }
 
 // updatePaneSizes updates the sizes of list and details panes based on terminal size.
@@ -352,12 +406,19 @@ func (a *App) View() string {
 	}
 
 	// Help text using centralized style
-	b.WriteString(Styles.Help.Render("↑/↓: navigate • Enter: action • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"))
+	helpText := "↑/↓: navigate • Enter: action • n: new worktree • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"
+	b.WriteString(Styles.Help.Render(helpText))
 
 	// If action menu is visible, render it as an overlay
 	if a.actionMenu.Visible() {
 		b.WriteString("\n\n")
 		b.WriteString(a.actionMenu.View())
+	}
+
+	// If create form is visible, render it as an overlay
+	if a.createForm.Visible() {
+		b.WriteString("\n\n")
+		b.WriteString(a.createForm.View())
 	}
 
 	return b.String()

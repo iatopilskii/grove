@@ -172,3 +172,115 @@ func splitWorktreePath(s string) []string {
 
 	return []string{path, hash}
 }
+
+// WorktreeAddError is returned when worktree creation fails.
+type WorktreeAddError struct {
+	Path   string
+	Branch string
+	Reason string
+}
+
+func (e *WorktreeAddError) Error() string {
+	return fmt.Sprintf("failed to add worktree at %s for branch %s: %s", e.Path, e.Branch, e.Reason)
+}
+
+// AddWorktreeOptions specifies options for creating a new worktree.
+type AddWorktreeOptions struct {
+	// Path is the absolute or relative path for the new worktree directory.
+	Path string
+	// Branch is the branch name to checkout. If empty and CreateBranch is true,
+	// a new branch will be created with the name derived from Path.
+	Branch string
+	// CreateBranch indicates whether to create a new branch.
+	// If true and Branch is empty, the branch name is derived from Path.
+	CreateBranch bool
+	// BaseBranch is the starting point for the new branch when CreateBranch is true.
+	// If empty, defaults to HEAD.
+	BaseBranch string
+}
+
+// AddWorktree creates a new git worktree at the specified path.
+// The dir parameter is the directory of an existing git repository.
+func AddWorktree(dir string, opts AddWorktreeOptions) error {
+	if !IsGitRepository(dir) {
+		return &NotGitRepoError{Path: dir}
+	}
+
+	if opts.Path == "" {
+		return &WorktreeAddError{
+			Path:   opts.Path,
+			Branch: opts.Branch,
+			Reason: "path is required",
+		}
+	}
+
+	// Build the git worktree add command
+	args := []string{"worktree", "add"}
+
+	if opts.CreateBranch {
+		// Create new branch
+		branchName := opts.Branch
+		if branchName == "" {
+			// Derive branch name from path
+			branchName = filepath.Base(opts.Path)
+		}
+
+		if opts.BaseBranch != "" {
+			args = append(args, "-b", branchName, opts.Path, opts.BaseBranch)
+		} else {
+			args = append(args, "-b", branchName, opts.Path)
+		}
+	} else {
+		// Use existing branch
+		if opts.Branch == "" {
+			return &WorktreeAddError{
+				Path:   opts.Path,
+				Branch: opts.Branch,
+				Reason: "branch is required when not creating a new branch",
+			}
+		}
+		args = append(args, opts.Path, opts.Branch)
+	}
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		reason := strings.TrimSpace(string(output))
+		if reason == "" {
+			reason = err.Error()
+		}
+		return &WorktreeAddError{
+			Path:   opts.Path,
+			Branch: opts.Branch,
+			Reason: reason,
+		}
+	}
+
+	return nil
+}
+
+// ListBranches lists all local branches in the repository.
+func ListBranches(dir string) ([]string, error) {
+	if !IsGitRepository(dir) {
+		return nil, &NotGitRepoError{Path: dir}
+	}
+
+	cmd := exec.Command("git", "branch", "--format=%(refname:short)")
+	cmd.Dir = dir
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list branches: %w", err)
+	}
+
+	var branches []string
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			branches = append(branches, line)
+		}
+	}
+
+	return branches, nil
+}
