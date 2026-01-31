@@ -37,6 +37,13 @@ func (t Tab) String() string {
 // TabCount is the total number of tabs.
 const TabCount = 3
 
+// TabPosition represents the screen position of a tab for mouse handling.
+type TabPosition struct {
+	Tab    Tab
+	StartX int
+	EndX   int
+}
+
 // Tabs is the tab bar model.
 type Tabs struct {
 	active Tab
@@ -77,6 +84,25 @@ func (t *Tabs) SetWidth(w int) {
 	t.width = w
 }
 
+// GetTabPositions calculates the screen positions of each tab.
+func (t *Tabs) GetTabPositions() []TabPosition {
+	positions := make([]TabPosition, TabCount)
+	currentX := 0
+
+	// Each tab has padding of 2 on each side ("  TabName  ")
+	for i := Tab(0); i < TabCount; i++ {
+		tabWidth := len(i.String()) + 4 // 2 padding on each side
+		positions[i] = TabPosition{
+			Tab:    i,
+			StartX: currentX,
+			EndX:   currentX + tabWidth,
+		}
+		currentX += tabWidth
+	}
+
+	return positions
+}
+
 // Update handles key messages for tab navigation.
 func (t *Tabs) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
@@ -86,6 +112,17 @@ func (t *Tabs) Update(msg tea.Msg) tea.Cmd {
 			t.Next()
 		case tea.KeyShiftTab:
 			t.Prev()
+		}
+	case tea.MouseMsg:
+		if msg.Button == tea.MouseButtonLeft && msg.Y == 0 {
+			// Click is on the tab row, determine which tab was clicked
+			positions := t.GetTabPositions()
+			for _, pos := range positions {
+				if msg.X >= pos.StartX && msg.X < pos.EndX {
+					t.SetActive(pos.Tab)
+					break
+				}
+			}
 		}
 	}
 	return nil

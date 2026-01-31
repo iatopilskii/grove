@@ -219,3 +219,110 @@ func TestTabCount(t *testing.T) {
 		t.Errorf("TabCount = %d, want 3", TabCount)
 	}
 }
+
+// TestTabsMouseClickSwitchTab verifies clicking on a tab switches to it
+func TestTabsMouseClickSwitchTab(t *testing.T) {
+	tabs := NewTabs()
+	tabs.SetWidth(80)
+
+	// Get tab positions - tabs are rendered with padding of 2 on each side
+	// Each tab takes about 12-14 chars: "  Worktrees  " "  Branches  " "  Settings  "
+	// Worktrees starts at 0, Branches around 14, Settings around 26
+
+	// Click on Branches tab (middle area)
+	tabs.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      18, // Should be in Branches area
+		Y:      0,
+	})
+	if tabs.Active() != TabBranches {
+		t.Errorf("after click on Branches area, Active() = %v, want TabBranches", tabs.Active())
+	}
+
+	// Click on Settings tab (right area)
+	tabs.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      32, // Should be in Settings area
+		Y:      0,
+	})
+	if tabs.Active() != TabSettings {
+		t.Errorf("after click on Settings area, Active() = %v, want TabSettings", tabs.Active())
+	}
+
+	// Click on Worktrees tab (left area)
+	tabs.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5, // Should be in Worktrees area
+		Y:      0,
+	})
+	if tabs.Active() != TabWorktrees {
+		t.Errorf("after click on Worktrees area, Active() = %v, want TabWorktrees", tabs.Active())
+	}
+}
+
+// TestTabsMouseClickOutOfBounds verifies clicking outside tabs doesn't crash
+func TestTabsMouseClickOutOfBounds(t *testing.T) {
+	tabs := NewTabs()
+	tabs.SetWidth(80)
+	initial := tabs.Active()
+
+	// Click on border line (Y=1)
+	tabs.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5,
+		Y:      1, // Border line
+	})
+	if tabs.Active() != initial {
+		t.Errorf("click on border should not change tab, got %v want %v", tabs.Active(), initial)
+	}
+
+	// Click below tabs (Y=2 or more)
+	tabs.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5,
+		Y:      5,
+	})
+	if tabs.Active() != initial {
+		t.Errorf("click below tabs should not change tab, got %v want %v", tabs.Active(), initial)
+	}
+
+	// Click way to the right (beyond all tabs)
+	tabs.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      200,
+		Y:      0,
+	})
+	// Should not crash and should not change active tab
+}
+
+// TestTabsGetTabPositions verifies GetTabPositions returns correct positions
+func TestTabsGetTabPositions(t *testing.T) {
+	tabs := NewTabs()
+	tabs.SetWidth(80)
+
+	positions := tabs.GetTabPositions()
+	if len(positions) != TabCount {
+		t.Errorf("GetTabPositions() returned %d positions, want %d", len(positions), TabCount)
+	}
+
+	// Each position should have StartX < EndX
+	for i, pos := range positions {
+		if pos.StartX >= pos.EndX {
+			t.Errorf("position %d: StartX (%d) should be less than EndX (%d)", i, pos.StartX, pos.EndX)
+		}
+	}
+
+	// Positions should be in order (each starts after previous ends)
+	for i := 1; i < len(positions); i++ {
+		if positions[i].StartX < positions[i-1].EndX {
+			t.Errorf("position %d StartX (%d) should be >= position %d EndX (%d)",
+				i, positions[i].StartX, i-1, positions[i-1].EndX)
+		}
+	}
+}

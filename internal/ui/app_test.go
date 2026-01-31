@@ -380,3 +380,152 @@ func TestAppPageNavigationOnlyOnListTabs(t *testing.T) {
 		t.Errorf("PageDown on Settings tab should not change selection, got %d want %d", after, initial)
 	}
 }
+
+// TestAppMouseClickListItem verifies clicking on list item selects it
+func TestAppMouseClickListItem(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Click on second item in the list
+	// List starts after tabs (2 lines for tabs + border)
+	// Each list item is 1 line
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      10, // Inside list pane width
+		Y:      4,  // Tabs (2) + first item = 3, second item = 4
+	})
+
+	// Selection should have changed
+	if app.list.Selected() != 1 {
+		t.Errorf("after mouse click on second item, list.Selected() = %d, want 1", app.list.Selected())
+	}
+}
+
+// TestAppMouseClickTab verifies clicking on tab switches to it
+func TestAppMouseClickTab(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Click on Settings tab (rightmost)
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      32, // In Settings tab area
+		Y:      0,  // Tab row
+	})
+
+	if app.tabs.Active() != TabSettings {
+		t.Errorf("after click on Settings tab, Active() = %v, want TabSettings", app.tabs.Active())
+	}
+}
+
+// TestAppMouseWheelInList verifies mouse wheel scrolls list
+func TestAppMouseWheelInList(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	initial := app.list.Selected()
+
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseWheelDown,
+		Button: tea.MouseButtonWheelDown,
+		X:      10,
+		Y:      5, // Inside list area
+	})
+
+	if app.list.Selected() != initial+1 {
+		t.Errorf("after mouse wheel down, list.Selected() = %d, want %d", app.list.Selected(), initial+1)
+	}
+}
+
+// TestAppMouseOutsideBounds verifies clicking outside bounds doesn't crash
+func TestAppMouseOutsideBounds(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Click outside terminal bounds - should not panic
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      500,
+		Y:      500,
+	})
+
+	// Click with negative coordinates - should not panic
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      -10,
+		Y:      -10,
+	})
+}
+
+// TestAppMouseDetailsPane verifies clicking on details pane doesn't crash
+func TestAppMouseDetailsPane(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	initial := app.list.Selected()
+
+	// Click in details pane area (right side)
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      80, // In details pane area
+		Y:      5,
+	})
+
+	// Selection should not change
+	if app.list.Selected() != initial {
+		t.Errorf("click in details pane should not change list selection, got %d want %d", app.list.Selected(), initial)
+	}
+}
+
+// TestAppMouseDetailsUpdateAfterClick verifies details updates after mouse selection
+func TestAppMouseDetailsUpdateAfterClick(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	initialItem := app.details.Item()
+	if initialItem == nil {
+		t.Fatal("details should have an item")
+	}
+
+	// Click on second item
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      10,
+		Y:      4, // Second item
+	})
+
+	afterItem := app.details.Item()
+	if afterItem == nil {
+		t.Fatal("details should still have an item")
+	}
+	if initialItem.ID == afterItem.ID {
+		t.Error("details should update after mouse click on different item")
+	}
+}
+
+// TestAppMouseOnSettingsTab verifies mouse in list doesn't affect selection on Settings tab
+func TestAppMouseOnSettingsTab(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app.tabs.SetActive(TabSettings)
+
+	initial := app.list.Selected()
+
+	// Click in what would be list area
+	app.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      10,
+		Y:      5,
+	})
+
+	// Selection should not change on Settings tab
+	if app.list.Selected() != initial {
+		t.Errorf("mouse click should not change list selection on Settings tab, got %d want %d", app.list.Selected(), initial)
+	}
+}

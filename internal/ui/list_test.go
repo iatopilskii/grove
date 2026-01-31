@@ -489,3 +489,207 @@ func TestListUpdatePageKeys(t *testing.T) {
 		t.Errorf("after KeyPgUp, Selected() = %d, want 0", list.Selected())
 	}
 }
+
+// TestListMouseClickSelect verifies clicking on a list item selects it
+func TestListMouseClickSelect(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Item 1"},
+		{ID: "2", Title: "Item 2"},
+		{ID: "3", Title: "Item 3"},
+	}
+	list := NewList(items)
+	list.SetSize(80, 10)
+	list.SetOffset(0, 2) // List starts at Y=2
+
+	// Click on second item (each item is 1 line, so Y=3 is item index 1)
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5,
+		Y:      3, // Offset 2 + item index 1
+	})
+	if list.Selected() != 1 {
+		t.Errorf("after mouse click on second item, Selected() = %d, want 1", list.Selected())
+	}
+
+	// Click on third item
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5,
+		Y:      4, // Offset 2 + item index 2
+	})
+	if list.Selected() != 2 {
+		t.Errorf("after mouse click on third item, Selected() = %d, want 2", list.Selected())
+	}
+}
+
+// TestListMouseClickOutOfBounds verifies clicking outside list bounds doesn't crash
+func TestListMouseClickOutOfBounds(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Item 1"},
+		{ID: "2", Title: "Item 2"},
+	}
+	list := NewList(items)
+	list.SetSize(80, 10)
+	list.SetOffset(0, 2)
+
+	initial := list.Selected()
+
+	// Click above the list
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5,
+		Y:      0, // Above offset
+	})
+	if list.Selected() != initial {
+		t.Errorf("click above list should not change selection, got %d want %d", list.Selected(), initial)
+	}
+
+	// Click below all items
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5,
+		Y:      100, // Way below list
+	})
+	if list.Selected() != initial {
+		t.Errorf("click below list should not change selection, got %d want %d", list.Selected(), initial)
+	}
+
+	// Click to the left of list
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      -5,
+		Y:      3,
+	})
+	// Should not crash
+}
+
+// TestListMouseClickEmpty verifies clicking on empty list doesn't crash
+func TestListMouseClickEmpty(t *testing.T) {
+	list := NewList(nil)
+	list.SetSize(80, 10)
+	list.SetOffset(0, 2)
+
+	// Click should not panic
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseLeft,
+		Button: tea.MouseButtonLeft,
+		X:      5,
+		Y:      3,
+	})
+	if list.Selected() != 0 {
+		t.Errorf("click on empty list should keep selection at 0, got %d", list.Selected())
+	}
+}
+
+// TestListMouseWheelDown verifies mouse wheel scrolls down
+func TestListMouseWheelDown(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Item 1"},
+		{ID: "2", Title: "Item 2"},
+		{ID: "3", Title: "Item 3"},
+	}
+	list := NewList(items)
+	list.SetSize(80, 10)
+	list.SetOffset(0, 2)
+
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseWheelDown,
+		Button: tea.MouseButtonWheelDown,
+		X:      5,
+		Y:      3,
+	})
+	if list.Selected() != 1 {
+		t.Errorf("after mouse wheel down, Selected() = %d, want 1", list.Selected())
+	}
+}
+
+// TestListMouseWheelUp verifies mouse wheel scrolls up
+func TestListMouseWheelUp(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Item 1"},
+		{ID: "2", Title: "Item 2"},
+		{ID: "3", Title: "Item 3"},
+	}
+	list := NewList(items)
+	list.SetSize(80, 10)
+	list.SetOffset(0, 2)
+	list.SetSelected(2) // Start at last item
+
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseWheelUp,
+		Button: tea.MouseButtonWheelUp,
+		X:      5,
+		Y:      3,
+	})
+	if list.Selected() != 1 {
+		t.Errorf("after mouse wheel up, Selected() = %d, want 1", list.Selected())
+	}
+}
+
+// TestListMouseWheelEmpty verifies mouse wheel on empty list doesn't crash
+func TestListMouseWheelEmpty(t *testing.T) {
+	list := NewList(nil)
+	list.SetSize(80, 10)
+	list.SetOffset(0, 2)
+
+	// Should not panic
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseWheelDown,
+		Button: tea.MouseButtonWheelDown,
+		X:      5,
+		Y:      3,
+	})
+	list.Update(tea.MouseMsg{
+		Type:   tea.MouseWheelUp,
+		Button: tea.MouseButtonWheelUp,
+		X:      5,
+		Y:      3,
+	})
+}
+
+// TestListSetOffset verifies SetOffset sets position correctly
+func TestListSetOffset(t *testing.T) {
+	list := NewList(nil)
+	list.SetOffset(10, 20)
+
+	if list.offsetX != 10 {
+		t.Errorf("after SetOffset, offsetX = %d, want 10", list.offsetX)
+	}
+	if list.offsetY != 20 {
+		t.Errorf("after SetOffset, offsetY = %d, want 20", list.offsetY)
+	}
+}
+
+// TestListIsInBounds verifies IsInBounds correctly detects mouse position
+func TestListIsInBounds(t *testing.T) {
+	list := NewList(nil)
+	list.SetSize(40, 10)
+	list.SetOffset(5, 5)
+
+	tests := []struct {
+		name     string
+		x, y     int
+		expected bool
+	}{
+		{"inside", 10, 8, true},
+		{"top-left corner", 5, 5, true},
+		{"bottom-right corner", 44, 14, true},
+		{"above", 10, 4, false},
+		{"below", 10, 16, false},
+		{"left of", 4, 8, false},
+		{"right of", 46, 8, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := list.IsInBounds(tt.x, tt.y); got != tt.expected {
+				t.Errorf("IsInBounds(%d, %d) = %v, want %v", tt.x, tt.y, got, tt.expected)
+			}
+		})
+	}
+}

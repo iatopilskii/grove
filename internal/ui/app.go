@@ -52,7 +52,7 @@ func NewApp() *App {
 // Init initializes the application and returns an initial command.
 // This is called once when the program starts.
 func (a *App) Init() tea.Cmd {
-	return nil
+	return tea.EnableMouseCellMotion
 }
 
 // Update handles incoming messages and updates the model accordingly.
@@ -97,6 +97,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
+
+	case tea.MouseMsg:
+		// Handle mouse events
+		if msg.Y == 0 {
+			// Click on tab bar row
+			a.tabs.Update(msg)
+		} else if a.tabs.Active() == TabWorktrees || a.tabs.Active() == TabBranches {
+			// Handle mouse in list pane
+			if a.list.IsInBounds(msg.X, msg.Y) || msg.Button == tea.MouseButtonWheelDown || msg.Button == tea.MouseButtonWheelUp {
+				a.list.Update(msg)
+				a.details.SetItem(a.list.SelectedItem())
+			}
+		}
+		return a, nil
 	}
 	return a, nil
 }
@@ -122,6 +136,7 @@ func (a *App) updatePaneSizes() {
 	}
 
 	a.list.SetSize(listWidth, availableHeight)
+	a.list.SetOffset(0, 3) // List starts at Y=3 (after tabs and border, which take 2 lines + 1 newline)
 	a.details.SetSize(detailsWidth, availableHeight)
 }
 

@@ -213,3 +213,61 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### NAV-002: Mouse Support for Selection and Scrolling (COMPLETED)
+
+**Task**: Mouse support for selection and scrolling
+
+**Implementation**:
+- Added mouse event handling to `Init()` with `tea.EnableMouseCellMotion`
+- Extended `List` struct with `offsetX` and `offsetY` fields for screen position tracking
+- Added `SetOffset(x, y)` method to List for setting screen position
+- Added `IsInBounds(x, y)` method to List for checking if mouse coordinates are within list bounds
+- Added mouse left-click handling in `List.Update()` to select items based on click position
+- Added mouse wheel up/down handling in `List.Update()` for scrolling (moves selection)
+- Created `TabPosition` struct to track tab positions on screen
+- Added `GetTabPositions()` method to Tabs for calculating tab screen coordinates
+- Added mouse left-click handling in `Tabs.Update()` to switch tabs when clicking on them
+- Updated `App.Update()` to route mouse events to appropriate components
+- Updated `App.updatePaneSizes()` to set list offset for mouse coordinate calculation
+- Mouse clicks outside bounds are safely ignored (no crash)
+- Mouse events only affect list when on Worktrees or Branches tabs
+
+**Verification Steps Passed**:
+- [x] Click on list item selects it
+- [x] Mouse scroll works in list and details panes
+- [x] Click on tab switches to that tab
+- [x] No crash on mouse events outside bounds
+
+**Tests** (list_test.go - new tests):
+- `TestListMouseClickSelect` - verifies clicking on list item selects it
+- `TestListMouseClickOutOfBounds` - verifies clicking outside list doesn't crash
+- `TestListMouseClickEmpty` - verifies clicking on empty list doesn't crash
+- `TestListMouseWheelDown` - verifies mouse wheel scrolls down
+- `TestListMouseWheelUp` - verifies mouse wheel scrolls up
+- `TestListMouseWheelEmpty` - verifies mouse wheel on empty list doesn't crash
+- `TestListSetOffset` - verifies SetOffset sets position correctly
+- `TestListIsInBounds` - table-driven tests for bounds checking
+
+**Tests** (tabs_test.go - new tests):
+- `TestTabsMouseClickSwitchTab` - verifies clicking on tab switches to it
+- `TestTabsMouseClickOutOfBounds` - verifies clicking outside tabs doesn't crash
+- `TestTabsGetTabPositions` - verifies GetTabPositions returns correct positions
+
+**Tests** (app_test.go - new tests):
+- `TestAppMouseClickListItem` - verifies clicking on list item via App
+- `TestAppMouseClickTab` - verifies clicking on tab via App
+- `TestAppMouseWheelInList` - verifies mouse wheel scrolls list via App
+- `TestAppMouseOutsideBounds` - verifies clicking outside bounds doesn't crash
+- `TestAppMouseDetailsPane` - verifies clicking on details pane doesn't change list selection
+- `TestAppMouseDetailsUpdateAfterClick` - verifies details updates after mouse selection
+- `TestAppMouseOnSettingsTab` - verifies mouse doesn't affect list on Settings tab
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 121 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

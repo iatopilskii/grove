@@ -77,7 +77,7 @@
         "Click on tab switches to that tab",
         "No crash on mouse events outside bounds"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NAV-003",

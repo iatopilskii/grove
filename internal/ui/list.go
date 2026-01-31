@@ -21,6 +21,8 @@ type List struct {
 	selected int
 	width    int
 	height   int
+	offsetX  int // X position on screen for mouse handling
+	offsetY  int // Y position on screen for mouse handling
 }
 
 // NewList creates a new list with the given items.
@@ -133,6 +135,18 @@ func (l *List) SetSize(width, height int) {
 	l.height = height
 }
 
+// SetOffset sets the screen position of the list for mouse handling.
+func (l *List) SetOffset(x, y int) {
+	l.offsetX = x
+	l.offsetY = y
+}
+
+// IsInBounds checks if the given screen coordinates are within the list bounds.
+func (l *List) IsInBounds(x, y int) bool {
+	return x >= l.offsetX && x < l.offsetX+l.width &&
+		y >= l.offsetY && y < l.offsetY+l.height
+}
+
 // Update handles input messages for the list.
 func (l *List) Update(msg tea.Msg) tea.Cmd {
 	switch msg := msg.(type) {
@@ -155,6 +169,22 @@ func (l *List) Update(msg tea.Msg) tea.Cmd {
 					l.MoveUp()
 				}
 			}
+		}
+	case tea.MouseMsg:
+		switch msg.Button {
+		case tea.MouseButtonLeft:
+			// Handle click to select item
+			if len(l.items) > 0 && l.IsInBounds(msg.X, msg.Y) {
+				// Calculate which item was clicked
+				clickedIndex := msg.Y - l.offsetY
+				if clickedIndex >= 0 && clickedIndex < len(l.items) {
+					l.SetSelected(clickedIndex)
+				}
+			}
+		case tea.MouseButtonWheelDown:
+			l.MoveDown()
+		case tea.MouseButtonWheelUp:
+			l.MoveUp()
 		}
 	}
 	return nil
