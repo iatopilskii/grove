@@ -27,6 +27,8 @@ type App struct {
 	feedback *Feedback
 	// createForm is the worktree creation form modal
 	createForm *CreateForm
+	// confirmDialog is the confirmation dialog modal
+	confirmDialog *ConfirmDialog
 	// width is the terminal width
 	width int
 	// height is the terminal height
@@ -49,13 +51,14 @@ func NewApp() *App {
 // If path is empty, uses the current working directory.
 func NewAppWithPath(path string) *App {
 	app := &App{
-		tabs:       NewTabs(),
-		list:       NewList(nil),
-		details:    NewDetails(),
-		actionMenu: NewActionMenu(),
-		feedback:   NewFeedback(),
-		createForm: NewCreateForm(),
-		repoPath:   path,
+		tabs:          NewTabs(),
+		list:          NewList(nil),
+		details:       NewDetails(),
+		actionMenu:    NewActionMenu(),
+		feedback:      NewFeedback(),
+		createForm:    NewCreateForm(),
+		confirmDialog: NewConfirmDialog(),
+		repoPath:      path,
 	}
 
 	// Determine the repository path
@@ -87,12 +90,13 @@ func NewAppWithItems(items []ListItem) *App {
 	}
 
 	return &App{
-		tabs:       NewTabs(),
-		list:       list,
-		details:    details,
-		actionMenu: NewActionMenu(),
-		feedback:   NewFeedback(),
-		createForm: NewCreateForm(),
+		tabs:          NewTabs(),
+		list:          list,
+		details:       details,
+		actionMenu:    NewActionMenu(),
+		feedback:      NewFeedback(),
+		createForm:    NewCreateForm(),
+		confirmDialog: NewConfirmDialog(),
 	}
 }
 
@@ -184,6 +188,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case CreateFormCancelledMsg:
 		// Form was cancelled, nothing to do
 		return a, nil
+	case ConfirmDialogResultMsg:
+		return a.handleConfirmDialogResult(msg)
+	}
+
+	// If confirm dialog is visible, route all key events to it
+	if a.confirmDialog.Visible() {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			// Allow Ctrl+C to quit even with dialog open
+			if keyMsg.Type == tea.KeyCtrlC {
+				a.quitting = true
+				return a, tea.Quit
+			}
+			cmd := a.confirmDialog.Update(keyMsg)
+			return a, cmd
+		}
 	}
 
 	// If create form is visible, route all key events to it
@@ -308,10 +327,15 @@ func (a *App) handleActionExecuted(msg ActionExecutedMsg) (tea.Model, tea.Cmd) {
 		cmd := a.feedback.ShowSuccess("Path copied to clipboard")
 		return a, cmd
 	case "delete":
-		// For now, just show info feedback
-		// In a real implementation, this would prompt for confirmation
-		cmd := a.feedback.ShowInfo("Delete action: " + msg.Item.Title + " (not implemented)")
-		return a, cmd
+		// Show confirmation dialog for delete action
+		a.confirmDialog.SetConfirmLabel("Delete")
+		a.confirmDialog.SetForceOption(true)
+		a.confirmDialog.ShowDanger(
+			"Delete Worktree?",
+			"This will remove the worktree '"+msg.Item.Title+"'.\nPath: "+msg.Item.ID,
+			msg.Item,
+		)
+		return a, nil
 	default:
 		cmd := a.feedback.ShowError("Unknown action: " + msg.Action.ID)
 		return a, cmd
@@ -337,6 +361,42 @@ func (a *App) handleCreateFormSubmitted(msg CreateFormSubmittedMsg) (tea.Model, 
 
 	cmd := a.feedback.ShowSuccess("Created worktree: " + msg.Result.Branch + " at " + msg.Result.Path)
 	return a, cmd
+}
+
+// handleConfirmDialogResult processes the result of a confirmation dialog.
+func (a *App) handleConfirmDialogResult(msg ConfirmDialogResultMsg) (tea.Model, tea.Cmd) {
+	if !msg.Confirmed {
+		// User cancelled, nothing to do
+		return a, nil
+	}
+
+	// Handle the confirmed action based on the data type
+	if item, ok := msg.Data.(*ListItem); ok {
+		// This is a worktree delete confirmation
+		opts := git.RemoveWorktreeOptions{
+			Path:  item.ID, // ID is the worktree path
+			Force: msg.Force,
+		}
+
+		err := git.RemoveWorktree(a.repoPath, opts)
+		if err != nil {
+			cmd := a.feedback.ShowError("Failed to remove worktree: " + err.Error())
+			return a, cmd
+		}
+
+		// Refresh the worktree list
+		a.loadWorktrees()
+
+		cmd := a.feedback.ShowSuccess("Removed worktree: " + item.Title)
+		return a, cmd
+	}
+
+	return a, nil
+}
+
+// ConfirmDialog returns the confirmation dialog component for testing.
+func (a *App) ConfirmDialog() *ConfirmDialog {
+	return a.confirmDialog
 }
 
 // CreateForm returns the create form component for testing.
@@ -419,6 +479,12 @@ func (a *App) View() string {
 	if a.createForm.Visible() {
 		b.WriteString("\n\n")
 		b.WriteString(a.createForm.View())
+	}
+
+	// If confirm dialog is visible, render it as an overlay
+	if a.confirmDialog.Visible() {
+		b.WriteString("\n\n")
+		b.WriteString(a.confirmDialog.View())
 	}
 
 	return b.String()

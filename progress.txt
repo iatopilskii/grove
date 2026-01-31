@@ -665,3 +665,92 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### GIT-003: Delete/Remove Worktree (COMPLETED)
+
+**Task**: Delete/remove worktree with confirmation prompt and force option
+
+**Implementation**:
+- Extended `internal/git/worktree.go` with worktree removal functions:
+  - `WorktreeRemoveError` type for descriptive error messages
+  - `RemoveWorktreeOptions` struct with Path and Force fields
+  - `RemoveWorktree(dir, opts)` removes worktree via `git worktree remove`
+  - Supports force removal with `--force` flag for uncommitted changes
+  - `HasUncommittedChanges(path)` checks for uncommitted changes in worktree
+- Created `internal/ui/confirm.go` with ConfirmDialog modal component:
+  - Title, message, and optional danger mode (red styling)
+  - Confirm/Cancel buttons with left/right arrow key navigation
+  - Force checkbox option for worktree deletion
+  - Tab/Shift+Tab and h/l vim-style navigation
+  - Quick y/n keyboard shortcuts for confirmation
+  - Space/f keys toggle force checkbox
+  - Enter executes selected action, Escape cancels
+  - `ConfirmDialogResultMsg` sent with Confirmed, Force, and Data fields
+- Integrated ConfirmDialog into App:
+  - Delete action in ActionMenu triggers confirmation dialog
+  - Confirmation dialog has force option for uncommitted changes
+  - ConfirmDialogResultMsg triggers `git.RemoveWorktree()`
+  - Success/error feedback shown via Feedback component
+  - Worktree list refreshes automatically after removal
+  - Ctrl+C quits even with dialog open
+  - All key events routed to dialog when visible
+
+**Verification Steps Passed**:
+- [x] Confirmation prompt before delete (ConfirmDialog with danger styling)
+- [x] Worktree removed via git worktree remove (RemoveWorktree function)
+- [x] Worktree disappears from list after removal (loadWorktrees called on success)
+- [x] Error shown if worktree has uncommitted changes (or force option enabled)
+
+**Tests** (worktree_test.go - new tests):
+- `TestWorktreeRemoveError` - verifies error type and message
+- `TestRemoveWorktreeOptions` - verifies options struct fields
+- `TestRemoveWorktreeInNonGitDir` - verifies NotGitRepoError for non-git directory
+- `TestRemoveWorktreeEmptyPath` - verifies path is required
+- `TestRemoveWorktreeIntegration` - integration test removing worktree
+- `TestRemoveWorktreeWithUncommittedChanges` - tests force option with uncommitted changes
+- `TestHasUncommittedChangesInNonGitDir` - verifies error for non-git directory
+- `TestHasUncommittedChangesIntegration` - integration test checking uncommitted changes
+
+**Tests** (confirm_test.go - 27 tests):
+- `TestNewConfirmDialog` - verifies constructor
+- `TestConfirmDialogShow` - verifies Show makes dialog visible
+- `TestConfirmDialogShowWithData` - verifies ShowWithData stores data
+- `TestConfirmDialogShowDanger` - verifies ShowDanger sets danger mode
+- `TestConfirmDialogHide` - verifies Hide closes dialog
+- `TestConfirmDialogMoveLeft` / `TestConfirmDialogMoveRight` - navigation
+- `TestConfirmDialogToggleForce` - verifies force toggle
+- `TestConfirmDialogUpdateEscape` - verifies Escape closes dialog
+- `TestConfirmDialogUpdateEnterConfirm` / `TestConfirmDialogUpdateEnterCancel` - Enter key
+- `TestConfirmDialogUpdateArrowKeys` / `TestConfirmDialogUpdateTabKeys` - navigation keys
+- `TestConfirmDialogUpdateHLKeys` - vim-style navigation
+- `TestConfirmDialogUpdateYKey` / `TestConfirmDialogUpdateNKey` - quick y/n keys
+- `TestConfirmDialogUpdateSpaceToggleForce` / `TestConfirmDialogUpdateFToggleForce` - force toggle
+- `TestConfirmDialogUpdateWhenHidden` - verifies no action when hidden
+- `TestConfirmDialogSetSize` - verifies dimension setting
+- `TestConfirmDialogSetLabels` - verifies label setting
+- `TestConfirmDialogView` / `TestConfirmDialogViewWhenHidden` - rendering tests
+- `TestConfirmDialogViewWithForce` / `TestConfirmDialogViewForceChecked` - force checkbox rendering
+- `TestConfirmDialogHasForceOption` - verifies HasForceOption getter
+- `TestConfirmDialogForceWithEnter` - verifies force state passed on confirm
+
+**Tests** (app_test.go - new tests):
+- `TestAppHasConfirmDialog` - verifies App has confirmDialog component
+- `TestAppConfirmDialogRoutesKeys` - verifies keys routed to dialog when visible
+- `TestAppConfirmDialogEscapeCloses` - verifies Escape closes dialog
+- `TestAppCtrlCQuitsEvenWithConfirmDialogOpen` - verifies Ctrl+C override
+- `TestAppViewShowsConfirmDialog` - verifies dialog appears in view
+- `TestAppConfirmDialogResultMsgCancelled` - verifies cancelled result handled
+- `TestAppConfirmDialogResultMsgConfirmedNoData` - verifies confirmed without data
+- `TestAppDeleteConfirmationFlow` - verifies complete delete confirmation flow
+- `TestAppDeleteWithForceOption` - verifies force option in delete
+- `TestAppConfirmDialogQuickAnswer` - verifies quick y/n answers
+- `TestAppHandleActionExecutedDelete` (updated) - verifies delete shows confirmation dialog
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

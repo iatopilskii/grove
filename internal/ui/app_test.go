@@ -821,16 +821,22 @@ func TestAppHandleActionExecutedOpen(t *testing.T) {
 	}
 }
 
-// TestAppHandleActionExecutedDelete verifies delete action shows info
+// TestAppHandleActionExecutedDelete verifies delete action shows confirmation dialog
 func TestAppHandleActionExecutedDelete(t *testing.T) {
 	app := NewApp()
 
 	action := &Action{ID: "delete", Label: "Delete"}
-	item := &ListItem{ID: "test", Title: "Test"}
+	item := &ListItem{ID: "/path/to/worktree", Title: "Test"}
 	app.Update(ActionExecutedMsg{Action: action, Item: item})
 
-	if app.feedback.Type() != FeedbackInfo {
-		t.Errorf("Delete action should show info feedback, got %v", app.feedback.Type())
+	if !app.confirmDialog.Visible() {
+		t.Error("Delete action should show confirmation dialog")
+	}
+	if app.confirmDialog.Title() != "Delete Worktree?" {
+		t.Errorf("Expected title 'Delete Worktree?', got '%s'", app.confirmDialog.Title())
+	}
+	if !app.confirmDialog.HasForceOption() {
+		t.Error("Delete confirmation should have force option")
 	}
 }
 
@@ -1163,5 +1169,162 @@ func TestAppCreateFormTabNavigation(t *testing.T) {
 
 	if app.createForm.Focused() != FieldPath {
 		t.Error("Tab should move focus to path field")
+	}
+}
+
+// TestAppHasConfirmDialog verifies App has confirmDialog component
+func TestAppHasConfirmDialog(t *testing.T) {
+	app := NewApp()
+	if app.ConfirmDialog() == nil {
+		t.Error("App should have confirmDialog component")
+	}
+}
+
+// TestAppConfirmDialogRoutesKeys verifies keys go to confirm dialog when visible
+func TestAppConfirmDialogRoutesKeys(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Show confirm dialog
+	app.confirmDialog.Show("Test", "Message")
+
+	// Press Left to move to confirm
+	app.Update(tea.KeyMsg{Type: tea.KeyLeft})
+
+	if app.confirmDialog.Selected() != 0 {
+		t.Error("Keys should be routed to confirm dialog")
+	}
+}
+
+// TestAppConfirmDialogEscapeCloses verifies Escape closes confirm dialog
+func TestAppConfirmDialogEscapeCloses(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Show confirm dialog
+	app.confirmDialog.Show("Test", "Message")
+
+	// Press Escape
+	app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if app.confirmDialog.Visible() {
+		t.Error("Escape should close confirm dialog")
+	}
+}
+
+// TestAppCtrlCQuitsEvenWithConfirmDialogOpen verifies Ctrl+C quits even with dialog open
+func TestAppCtrlCQuitsEvenWithConfirmDialogOpen(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Show confirm dialog
+	app.confirmDialog.Show("Test", "Message")
+
+	// Press Ctrl+C
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+
+	if !app.quitting {
+		t.Error("Ctrl+C should set quitting to true even with dialog open")
+	}
+	if cmd == nil {
+		t.Error("Ctrl+C should return quit command")
+	}
+}
+
+// TestAppViewShowsConfirmDialog verifies View includes confirm dialog when visible
+func TestAppViewShowsConfirmDialog(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Show confirm dialog
+	app.confirmDialog.Show("Delete Worktree?", "This will remove the worktree.")
+
+	view := app.View()
+
+	if !strings.Contains(view, "Delete Worktree?") {
+		t.Error("View should show confirm dialog title")
+	}
+	if !strings.Contains(view, "remove the worktree") {
+		t.Error("View should show confirm dialog message")
+	}
+}
+
+// TestAppConfirmDialogResultMsgCancelled verifies cancelled confirmation
+func TestAppConfirmDialogResultMsgCancelled(t *testing.T) {
+	app := NewApp()
+
+	// Should not panic and should not show feedback
+	app.Update(ConfirmDialogResultMsg{Confirmed: false})
+
+	if app.feedback.Visible() {
+		t.Error("Cancelled confirmation should not show feedback")
+	}
+}
+
+// TestAppConfirmDialogResultMsgConfirmedNoData verifies confirmed without data
+func TestAppConfirmDialogResultMsgConfirmedNoData(t *testing.T) {
+	app := NewApp()
+
+	// Should not panic
+	app.Update(ConfirmDialogResultMsg{Confirmed: true, Data: nil})
+
+	// Nothing happens without valid data
+}
+
+// TestAppDeleteConfirmationFlow verifies the complete delete confirmation flow
+func TestAppDeleteConfirmationFlow(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Trigger delete action
+	action := &Action{ID: "delete", Label: "Delete"}
+	item := &ListItem{ID: "/path/to/worktree", Title: "test-worktree"}
+	app.Update(ActionExecutedMsg{Action: action, Item: item})
+
+	// Confirm dialog should be visible
+	if !app.confirmDialog.Visible() {
+		t.Fatal("Confirm dialog should be visible after delete action")
+	}
+
+	// Select confirm button (move left from cancel which is default)
+	app.Update(tea.KeyMsg{Type: tea.KeyLeft})
+
+	// Verify the data is stored
+	if app.confirmDialog.Data() == nil {
+		t.Error("Confirm dialog should have stored the item data")
+	}
+}
+
+// TestAppDeleteWithForceOption verifies force option in delete
+func TestAppDeleteWithForceOption(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Trigger delete action
+	action := &Action{ID: "delete", Label: "Delete"}
+	item := &ListItem{ID: "/path/to/worktree", Title: "test-worktree"}
+	app.Update(ActionExecutedMsg{Action: action, Item: item})
+
+	// Toggle force option
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'f'}})
+
+	if !app.confirmDialog.ForceSelected() {
+		t.Error("'f' should toggle force option")
+	}
+}
+
+// TestAppConfirmDialogQuickAnswer verifies quick y/n answers
+func TestAppConfirmDialogQuickAnswer(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Show confirm dialog
+	app.confirmDialog.Show("Test", "Message")
+
+	// Press 'n' to cancel
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+
+	if app.confirmDialog.Visible() {
+		t.Error("'n' should close confirm dialog")
 	}
 }

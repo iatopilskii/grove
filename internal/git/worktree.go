@@ -284,3 +284,76 @@ func ListBranches(dir string) ([]string, error) {
 
 	return branches, nil
 }
+
+// WorktreeRemoveError is returned when worktree removal fails.
+type WorktreeRemoveError struct {
+	Path   string
+	Reason string
+}
+
+func (e *WorktreeRemoveError) Error() string {
+	return fmt.Sprintf("failed to remove worktree at %s: %s", e.Path, e.Reason)
+}
+
+// RemoveWorktreeOptions specifies options for removing a worktree.
+type RemoveWorktreeOptions struct {
+	// Path is the path to the worktree to remove.
+	Path string
+	// Force indicates whether to force removal even if there are uncommitted changes.
+	Force bool
+}
+
+// RemoveWorktree removes a git worktree at the specified path.
+// The dir parameter is the directory of an existing git repository.
+func RemoveWorktree(dir string, opts RemoveWorktreeOptions) error {
+	if !IsGitRepository(dir) {
+		return &NotGitRepoError{Path: dir}
+	}
+
+	if opts.Path == "" {
+		return &WorktreeRemoveError{
+			Path:   opts.Path,
+			Reason: "path is required",
+		}
+	}
+
+	// Build the git worktree remove command
+	args := []string{"worktree", "remove"}
+	if opts.Force {
+		args = append(args, "--force")
+	}
+	args = append(args, opts.Path)
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		reason := strings.TrimSpace(string(output))
+		if reason == "" {
+			reason = err.Error()
+		}
+		return &WorktreeRemoveError{
+			Path:   opts.Path,
+			Reason: reason,
+		}
+	}
+
+	return nil
+}
+
+// HasUncommittedChanges checks if the worktree at the given path has uncommitted changes.
+func HasUncommittedChanges(path string) (bool, error) {
+	if !IsGitRepository(path) {
+		return false, &NotGitRepoError{Path: path}
+	}
+
+	cmd := exec.Command("git", "status", "--porcelain")
+	cmd.Dir = path
+	output, err := cmd.Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to check status: %w", err)
+	}
+
+	return len(strings.TrimSpace(string(output))) > 0, nil
+}

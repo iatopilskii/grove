@@ -745,3 +745,342 @@ func TestListBranchesIntegration(t *testing.T) {
 		}
 	}
 }
+
+// TestWorktreeRemoveError verifies the error type and message.
+func TestWorktreeRemoveError(t *testing.T) {
+	err := &WorktreeRemoveError{
+		Path:   "/path/to/worktree",
+		Reason: "worktree has uncommitted changes",
+	}
+
+	expected := "failed to remove worktree at /path/to/worktree: worktree has uncommitted changes"
+	if err.Error() != expected {
+		t.Errorf("Expected error message '%s', got '%s'", expected, err.Error())
+	}
+}
+
+// TestRemoveWorktreeOptions verifies the options struct.
+func TestRemoveWorktreeOptions(t *testing.T) {
+	opts := RemoveWorktreeOptions{
+		Path:  "/path/to/worktree",
+		Force: true,
+	}
+
+	if opts.Path != "/path/to/worktree" {
+		t.Errorf("Expected Path '/path/to/worktree', got '%s'", opts.Path)
+	}
+	if !opts.Force {
+		t.Error("Expected Force true, got false")
+	}
+}
+
+// TestRemoveWorktreeInNonGitDir tests RemoveWorktree in a non-git directory.
+func TestRemoveWorktreeInNonGitDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	err = RemoveWorktree(tmpDir, RemoveWorktreeOptions{
+		Path: "/path/to/worktree",
+	})
+
+	if err == nil {
+		t.Error("Expected error for non-git directory, got nil")
+	}
+	if !IsNotGitRepoError(err) {
+		t.Errorf("Expected NotGitRepoError, got: %v", err)
+	}
+}
+
+// TestRemoveWorktreeEmptyPath tests RemoveWorktree with empty path.
+func TestRemoveWorktreeEmptyPath(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	err = RemoveWorktree(tmpDir, RemoveWorktreeOptions{
+		Path: "",
+	})
+
+	if err == nil {
+		t.Error("Expected error for empty path, got nil")
+	}
+
+	removeErr, ok := err.(*WorktreeRemoveError)
+	if !ok {
+		t.Fatalf("Expected WorktreeRemoveError, got: %T", err)
+	}
+	if removeErr.Reason != "path is required" {
+		t.Errorf("Expected reason 'path is required', got '%s'", removeErr.Reason)
+	}
+}
+
+// TestRemoveWorktreeIntegration tests removing a worktree.
+func TestRemoveWorktreeIntegration(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit (required for worktrees)
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Create worktree path
+	worktreePath := filepath.Join(tmpDir, "..", "worktree-remove-test")
+
+	// Add worktree
+	err = AddWorktree(tmpDir, AddWorktreeOptions{
+		Path:         worktreePath,
+		Branch:       "remove-test",
+		CreateBranch: true,
+	})
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	// Verify worktree was created
+	worktrees, err := ListWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorktrees failed: %v", err)
+	}
+	found := false
+	for _, wt := range worktrees {
+		if wt.Branch == "remove-test" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("Worktree was not created")
+	}
+
+	// Remove the worktree
+	err = RemoveWorktree(tmpDir, RemoveWorktreeOptions{
+		Path: worktreePath,
+	})
+	if err != nil {
+		t.Fatalf("RemoveWorktree failed: %v", err)
+	}
+
+	// Verify the worktree was removed
+	worktrees, err = ListWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorktrees failed: %v", err)
+	}
+	for _, wt := range worktrees {
+		if wt.Branch == "remove-test" {
+			t.Error("Worktree was not removed")
+		}
+	}
+}
+
+// TestRemoveWorktreeWithUncommittedChanges tests removing a worktree with uncommitted changes.
+func TestRemoveWorktreeWithUncommittedChanges(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("test"), 0644)
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Create worktree path
+	worktreePath := filepath.Join(tmpDir, "..", "worktree-uncommitted-test")
+	defer os.RemoveAll(worktreePath)
+
+	// Add worktree
+	err = AddWorktree(tmpDir, AddWorktreeOptions{
+		Path:         worktreePath,
+		Branch:       "uncommitted-test",
+		CreateBranch: true,
+	})
+	if err != nil {
+		t.Fatalf("AddWorktree failed: %v", err)
+	}
+
+	// Create uncommitted changes in the worktree
+	newFile := filepath.Join(worktreePath, "uncommitted.txt")
+	if err := os.WriteFile(newFile, []byte("uncommitted change"), 0644); err != nil {
+		t.Fatalf("Failed to create uncommitted file: %v", err)
+	}
+
+	// Try to remove the worktree without force - should fail
+	err = RemoveWorktree(tmpDir, RemoveWorktreeOptions{
+		Path:  worktreePath,
+		Force: false,
+	})
+	if err == nil {
+		t.Error("Expected error for worktree with uncommitted changes, got nil")
+	}
+
+	// Remove with force - should succeed
+	err = RemoveWorktree(tmpDir, RemoveWorktreeOptions{
+		Path:  worktreePath,
+		Force: true,
+	})
+	if err != nil {
+		t.Fatalf("RemoveWorktree with force failed: %v", err)
+	}
+}
+
+// TestHasUncommittedChangesInNonGitDir tests HasUncommittedChanges in a non-git directory.
+func TestHasUncommittedChangesInNonGitDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	_, err = HasUncommittedChanges(tmpDir)
+	if err == nil {
+		t.Error("Expected error for non-git directory, got nil")
+	}
+	if !IsNotGitRepoError(err) {
+		t.Errorf("Expected NotGitRepoError, got: %v", err)
+	}
+}
+
+// TestHasUncommittedChangesIntegration tests HasUncommittedChanges with a git repository.
+func TestHasUncommittedChangesIntegration(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("test"), 0644)
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Clean state - no uncommitted changes
+	hasChanges, err := HasUncommittedChanges(tmpDir)
+	if err != nil {
+		t.Fatalf("HasUncommittedChanges failed: %v", err)
+	}
+	if hasChanges {
+		t.Error("Expected no uncommitted changes, got true")
+	}
+
+	// Create uncommitted changes
+	newFile := filepath.Join(tmpDir, "new.txt")
+	if err := os.WriteFile(newFile, []byte("new content"), 0644); err != nil {
+		t.Fatalf("Failed to create new file: %v", err)
+	}
+
+	// Should now have uncommitted changes
+	hasChanges, err = HasUncommittedChanges(tmpDir)
+	if err != nil {
+		t.Fatalf("HasUncommittedChanges failed: %v", err)
+	}
+	if !hasChanges {
+		t.Error("Expected uncommitted changes, got false")
+	}
+}

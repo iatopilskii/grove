@@ -160,7 +160,7 @@
         "Worktree disappears from list after removal",
         "Error shown if worktree has uncommitted changes (or force option)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "GIT-004",
