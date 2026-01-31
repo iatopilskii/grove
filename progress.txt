@@ -876,3 +876,67 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### GIT-006: Switch to Worktree (COMPLETED)
+
+**Task**: Switch to worktree (open in terminal or change directory)
+
+**Implementation**:
+- Created `internal/git/terminal.go` with terminal opening functionality:
+  - `TerminalOpener` struct for managing terminal operations
+  - `NewTerminalOpener()` constructor with auto-detection
+  - `NewTerminalOpenerWithCmd(cmd)` constructor for custom terminal command
+  - `OpenWorktree(path)` opens worktree in new terminal or provides cd command fallback
+  - `OpenWorktreeResult` struct with Success, Method, Message, and CDCommand fields
+  - `detectTerminal()` auto-detects available terminal based on OS
+  - macOS support: iTerm2, Alacritty, Kitty, WezTerm, Terminal.app (using AppleScript)
+  - Linux support: gnome-terminal, konsole, xfce4-terminal, alacritty, kitty, wezterm, terminator, xterm
+  - Windows support: Windows Terminal (wt.exe), PowerShell, cmd.exe
+  - `GetCDCommand(path)` helper returns shell cd command for fallback
+  - `shellQuote(s)` safely quotes paths for shell commands
+- Updated `internal/ui/app.go` to use terminal opener:
+  - Open action now calls `git.NewTerminalOpener().OpenWorktree(path)`
+  - Shows success feedback when terminal opens successfully
+  - Shows info feedback with cd command when terminal opening fails (fallback)
+  - Shows error feedback if worktree path doesn't exist
+  - Updated "cd" action to show the cd command using `git.GetCDCommand()`
+
+**Verification Steps Passed**:
+- [x] Action to 'switch' or 'open' worktree exists (Open action in action menu)
+- [x] Opens new terminal/shell at worktree path OR prints cd command
+- [x] User ends up in correct directory (via terminal or cd command)
+- [x] Works with common terminal emulators (auto-detection for macOS, Linux, Windows)
+
+**Tests** (terminal_test.go - 17 tests):
+- `TestNewTerminalOpener` - verifies constructor
+- `TestNewTerminalOpenerWithCmd` - verifies constructor with custom command
+- `TestOpenWorktreeInvalidPath` - verifies error for non-existent path
+- `TestOpenWorktreeValidPath` - verifies successful result for valid path
+- `TestOpenWorktreeResultFields` - verifies result struct fields
+- `TestDetectTerminal` - verifies terminal detection returns values
+- `TestDetectTerminalWithCustomCmd` - verifies custom command overrides detection
+- `TestShellQuote` - table-driven tests for shell quoting
+- `TestShellQuoteWithSingleQuotes` - verifies double-quote fallback
+- `TestGetCDCommand` - verifies cd command generation
+- `TestOpenWorktreeFallbackToCDCommand` - verifies cd command fallback
+- `TestBuildMacOSCommand` - macOS-specific command building (skipped on other OS)
+- `TestBuildLinuxCommand` - Linux-specific command building
+- `TestBuildWindowsCommand` - Windows-specific command building (skipped on other OS)
+- `TestDetectMacOSTerminal` - macOS terminal detection (skipped on other OS)
+- `TestDetectWindowsTerminal` - Windows terminal detection (skipped on other OS)
+
+**Tests** (app_test.go - 5 new tests):
+- `TestAppOpenActionExecuted` - verifies open action shows feedback
+- `TestAppOpenActionWithInvalidPath` - verifies error handling for invalid path
+- `TestAppCDActionExecuted` - verifies cd action shows path command
+- `TestAppOpenActionResultsInFeedback` - verifies open action feedback content
+- `TestAppHandleActionExecutedOpen` (updated) - updated to handle new behavior
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

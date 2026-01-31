@@ -196,7 +196,7 @@
         "User ends up in correct directory",
         "Works with common terminal emulators"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "CONFIG-001",

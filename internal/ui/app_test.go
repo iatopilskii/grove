@@ -808,16 +808,25 @@ func TestAppEnterWithEmptyList(t *testing.T) {
 	}
 }
 
-// TestAppHandleActionExecutedOpen verifies open action shows success
+// TestAppHandleActionExecutedOpen verifies open action shows feedback
 func TestAppHandleActionExecutedOpen(t *testing.T) {
 	app := NewApp()
 
+	// Use /tmp which should exist on most systems
 	action := &Action{ID: "open", Label: "Open"}
-	item := &ListItem{ID: "test", Title: "Test"}
+	item := &ListItem{ID: "/tmp", Title: "Test"}
 	app.Update(ActionExecutedMsg{Action: action, Item: item})
 
-	if app.feedback.Type() != FeedbackSuccess {
-		t.Errorf("Open action should show success feedback, got %v", app.feedback.Type())
+	// Open action should show some feedback (success, info, or even error)
+	// Depending on whether terminal can be opened or not
+	if !app.feedback.Visible() {
+		t.Error("Open action should show feedback")
+	}
+
+	// The feedback type can be success (terminal opened), info (cd command fallback),
+	// or error (if path doesn't exist). For /tmp, it should not be error.
+	if app.feedback.Type() == FeedbackError {
+		t.Errorf("Open action for valid path should not show error feedback")
 	}
 }
 
@@ -1452,5 +1461,100 @@ func TestAppPKeyDoesNotTriggerWhenGitError(t *testing.T) {
 
 	if app.confirmDialog.Visible() {
 		t.Error("'p' should not work when there is a git error")
+	}
+}
+
+// TestAppOpenActionExecuted verifies the open action shows feedback
+func TestAppOpenActionExecuted(t *testing.T) {
+	items := []ListItem{
+		{ID: "/path/to/worktree", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Send an open action executed message
+	openAction := &Action{ID: "open", Label: "Open", Description: "Open worktree in new terminal"}
+	app.Update(ActionExecutedMsg{Action: openAction, Item: &items[0]})
+
+	// Feedback should be visible (either success, info, or error)
+	if !app.feedback.Visible() {
+		t.Error("Expected feedback to be visible after open action")
+	}
+}
+
+// TestAppOpenActionWithInvalidPath verifies error handling for invalid path
+func TestAppOpenActionWithInvalidPath(t *testing.T) {
+	items := []ListItem{
+		{ID: "/non/existent/path/12345", Title: "Invalid", Description: "Invalid worktree"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Send an open action for invalid path
+	openAction := &Action{ID: "open", Label: "Open", Description: "Open worktree in new terminal"}
+	app.Update(ActionExecutedMsg{Action: openAction, Item: &items[0]})
+
+	// Feedback should show error
+	if !app.feedback.Visible() {
+		t.Error("Expected feedback to be visible after failed open action")
+	}
+
+	view := app.feedback.View()
+	if !strings.Contains(view, "✗") && !strings.Contains(view, "Failed") {
+		t.Error("Expected error indicator in feedback for invalid path")
+	}
+}
+
+// TestAppCDActionExecuted verifies the cd action shows path command
+func TestAppCDActionExecuted(t *testing.T) {
+	items := []ListItem{
+		{ID: "/path/to/worktree", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Send a cd action executed message
+	cdAction := &Action{ID: "cd", Label: "Copy Path", Description: "Copy worktree path"}
+	app.Update(ActionExecutedMsg{Action: cdAction, Item: &items[0]})
+
+	// Feedback should be visible
+	if !app.feedback.Visible() {
+		t.Error("Expected feedback to be visible after cd action")
+	}
+
+	view := app.feedback.View()
+	if !strings.Contains(view, "cd") {
+		t.Error("Expected 'cd' command in feedback")
+	}
+}
+
+// TestAppOpenActionResultsInFeedback verifies open action feedback content
+func TestAppOpenActionResultsInFeedback(t *testing.T) {
+	// Create a temporary directory to use as worktree path
+	items := []ListItem{
+		{ID: "/tmp", Title: "Tmp", Description: "Temp directory"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Send an open action
+	openAction := &Action{ID: "open", Label: "Open", Description: "Open worktree in new terminal"}
+	app.Update(ActionExecutedMsg{Action: openAction, Item: &items[0]})
+
+	// Feedback should be visible with some content
+	if !app.feedback.Visible() {
+		t.Error("Expected feedback to be visible")
+	}
+
+	view := app.feedback.View()
+	// Should contain either success indicator, info indicator, or cd command
+	hasContent := strings.Contains(view, "✓") ||
+		strings.Contains(view, "ℹ") ||
+		strings.Contains(view, "cd") ||
+		strings.Contains(view, "Opened") ||
+		strings.Contains(view, "Use this command")
+
+	if !hasContent {
+		t.Errorf("Expected meaningful feedback content, got: %s", view)
 	}
 }

@@ -352,14 +352,28 @@ func (a *App) handleActionExecuted(msg ActionExecutedMsg) (tea.Model, tea.Cmd) {
 	// Execute the action and show feedback
 	switch msg.Action.ID {
 	case "open":
-		// For now, just show success feedback
-		// In a real implementation, this would open a terminal at the worktree path
-		cmd := a.feedback.ShowSuccess("Opened worktree: " + msg.Item.Title)
+		// Open the worktree in a new terminal or provide cd command
+		worktreePath := msg.Item.ID // ID is the worktree path
+		opener := git.NewTerminalOpener()
+		result, err := opener.OpenWorktree(worktreePath)
+		if err != nil {
+			cmd := a.feedback.ShowError("Failed to open worktree: " + err.Error())
+			return a, cmd
+		}
+
+		// Show appropriate feedback based on result
+		if result.Success {
+			cmd := a.feedback.ShowSuccess(result.Message)
+			return a, cmd
+		}
+		// Fallback: show the cd command to the user
+		cmd := a.feedback.ShowInfo(result.Message)
 		return a, cmd
 	case "cd":
-		// For now, just show success feedback
-		// In a real implementation, this would copy the path to clipboard
-		cmd := a.feedback.ShowSuccess("Path copied to clipboard")
+		// Get the cd command for the worktree
+		worktreePath := msg.Item.ID
+		cdCommand := git.GetCDCommand(worktreePath)
+		cmd := a.feedback.ShowInfo("Copy: " + cdCommand)
 		return a, cmd
 	case "delete":
 		// Show confirmation dialog for delete action
