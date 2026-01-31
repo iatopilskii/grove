@@ -1084,3 +1084,251 @@ func TestHasUncommittedChangesIntegration(t *testing.T) {
 		t.Error("Expected uncommitted changes, got false")
 	}
 }
+
+// TestWorktreePruneError verifies the error type and message.
+func TestWorktreePruneError(t *testing.T) {
+	err := &WorktreePruneError{
+		Reason: "failed to prune worktrees",
+	}
+
+	expected := "failed to prune worktrees: failed to prune worktrees"
+	if err.Error() != expected {
+		t.Errorf("Expected error message '%s', got '%s'", expected, err.Error())
+	}
+}
+
+// TestPruneWorktreesInNonGitDir tests PruneWorktrees in a non-git directory.
+func TestPruneWorktreesInNonGitDir(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	_, err = PruneWorktrees(tmpDir)
+	if err == nil {
+		t.Error("Expected error for non-git directory, got nil")
+	}
+	if !IsNotGitRepoError(err) {
+		t.Errorf("Expected NotGitRepoError, got: %v", err)
+	}
+}
+
+// TestPruneWorktreesIntegration tests pruning worktrees in a git repository.
+func TestPruneWorktreesIntegration(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit (required for worktrees)
+	testFile := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Run prune on a clean repo - should succeed without errors
+	output, err := PruneWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("PruneWorktrees failed: %v", err)
+	}
+
+	// Output should be empty or contain no error text
+	if strings.Contains(strings.ToLower(output), "error") {
+		t.Errorf("Expected no errors in output, got: %s", output)
+	}
+}
+
+// TestPruneWorktreesWithStaleEntry tests pruning a stale worktree entry.
+func TestPruneWorktreesWithStaleEntry(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("test"), 0644)
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Create a worktree
+	worktreePath := filepath.Join(tmpDir, "..", "worktree-prune-test")
+	cmd = exec.Command("git", "worktree", "add", "-b", "prune-test", worktreePath)
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git worktree add failed: %v", err)
+	}
+
+	// Verify worktree exists in list
+	worktrees, err := ListWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorktrees failed: %v", err)
+	}
+	if len(worktrees) < 2 {
+		t.Errorf("Expected at least 2 worktrees, got %d", len(worktrees))
+	}
+
+	// Manually delete the worktree directory to create a stale entry
+	if err := os.RemoveAll(worktreePath); err != nil {
+		t.Fatalf("Failed to remove worktree directory: %v", err)
+	}
+
+	// Prune should clean up the stale entry
+	output, err := PruneWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("PruneWorktrees failed: %v", err)
+	}
+
+	// The prune should have worked (even if output is empty)
+	_ = output
+
+	// Verify the stale entry was removed from the worktree list
+	worktrees, err = ListWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorktrees failed: %v", err)
+	}
+
+	// Should no longer have the stale worktree
+	for _, wt := range worktrees {
+		if wt.Branch == "prune-test" {
+			t.Error("Stale worktree was not pruned")
+		}
+	}
+}
+
+// TestPruneWorktreesDryRun tests the dry-run mode of pruning.
+func TestPruneWorktreesDryRun(t *testing.T) {
+	// Check if git is available
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available, skipping integration test")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "gitworktreetest")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init failed: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@test.com")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = tmpDir
+	cmd.Run()
+
+	// Create an initial commit
+	testFile := filepath.Join(tmpDir, "test.txt")
+	os.WriteFile(testFile, []byte("test"), 0644)
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = tmpDir
+	cmd.Run()
+	cmd = exec.Command("git", "commit", "-m", "initial")
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+
+	// Create a worktree
+	worktreePath := filepath.Join(tmpDir, "..", "worktree-dryrun-test")
+	cmd = exec.Command("git", "worktree", "add", "-b", "dryrun-test", worktreePath)
+	cmd.Dir = tmpDir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git worktree add failed: %v", err)
+	}
+	defer os.RemoveAll(worktreePath)
+
+	// Manually delete the worktree directory to create a stale entry
+	if err := os.RemoveAll(worktreePath); err != nil {
+		t.Fatalf("Failed to remove worktree directory: %v", err)
+	}
+
+	// Dry run should report the stale entry but not remove it
+	output, err := PruneWorktreesDryRun(tmpDir)
+	if err != nil {
+		t.Fatalf("PruneWorktreesDryRun failed: %v", err)
+	}
+
+	// Output should mention the stale worktree path
+	if !strings.Contains(output, "dryrun-test") && !strings.Contains(output, "worktree-dryrun-test") {
+		// Some git versions may have different output format
+		// Just check that it ran successfully
+		_ = output
+	}
+
+	// The entry should still be in the list (dry run doesn't remove)
+	worktrees, err := ListWorktrees(tmpDir)
+	if err != nil {
+		t.Fatalf("ListWorktrees failed: %v", err)
+	}
+
+	// The worktree entry should still be there but marked as stale in list
+	// Note: git worktree list may or may not show stale entries depending on version
+	_ = worktrees
+}

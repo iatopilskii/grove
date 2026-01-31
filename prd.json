@@ -172,7 +172,7 @@
         "Stale entries removed from list",
         "Feedback message shown after prune"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "GIT-005",

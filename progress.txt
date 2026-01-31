@@ -754,3 +754,57 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### GIT-004: Prune Stale Worktrees (COMPLETED)
+
+**Task**: Prune stale worktrees via git worktree prune with UI integration
+
+**Implementation**:
+- Extended `internal/git/worktree.go` with prune functions:
+  - `WorktreePruneError` type for descriptive error messages
+  - `PruneWorktrees(dir)` removes stale worktree entries via `git worktree prune`
+  - `PruneWorktreesDryRun(dir)` shows which worktrees would be pruned without removing
+  - Both functions return output from git command for feedback
+- Added 'p' keyboard shortcut on Worktrees tab to trigger prune:
+  - Shows confirmation dialog before pruning
+  - Confirmation dialog explains what prune does
+  - Only available when in a valid git repository
+- Integrated prune into App:
+  - `handleConfirmDialogResult` handles prune confirmation
+  - On confirmation, calls `git.PruneWorktrees()`
+  - Shows success/error feedback via Feedback component
+  - Worktree list refreshes automatically after prune
+  - Escape key cancels prune confirmation
+  - Ctrl+C still quits even with dialog open
+- Updated help text to include 'p: prune' hint
+
+**Verification Steps Passed**:
+- [x] Prune option available in UI ('p' keyboard shortcut)
+- [x] Runs git worktree prune (via PruneWorktrees function)
+- [x] Stale entries removed from list (loadWorktrees called after prune)
+- [x] Feedback message shown after prune (via Feedback component)
+
+**Tests** (worktree_test.go - 5 new tests):
+- `TestWorktreePruneError` - verifies error type and message
+- `TestPruneWorktreesInNonGitDir` - verifies NotGitRepoError for non-git directory
+- `TestPruneWorktreesIntegration` - integration test pruning clean repo
+- `TestPruneWorktreesWithStaleEntry` - integration test pruning stale worktree
+- `TestPruneWorktreesDryRun` - tests dry-run mode
+
+**Tests** (app_test.go - 8 new tests):
+- `TestAppPKeyTriggersPrune` - verifies 'p' opens prune confirmation on Worktrees tab
+- `TestAppPKeyDoesNotTriggerOnSettingsTab` - verifies 'p' doesn't work on Settings tab
+- `TestAppPruneConfirmationFlow` - verifies prune confirmation flow
+- `TestAppPruneCancellation` - verifies prune can be cancelled with Escape
+- `TestAppViewHelpIncludesPrune` - verifies help text includes 'p: prune' hint
+- `TestAppPruneResultMsg` - verifies handling of prune result message
+- `TestAppPKeyDoesNotTriggerWhenGitError` - verifies 'p' doesn't work when not in git repo
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 370 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

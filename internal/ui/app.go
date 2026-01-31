@@ -280,6 +280,18 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						a.createForm.Show()
 					}
 					return a, nil
+				case 'p':
+					// Prune stale worktrees on Worktrees tab
+					if a.tabs.Active() == TabWorktrees && !git.IsNotGitRepoError(a.gitError) {
+						a.confirmDialog.SetConfirmLabel("Prune")
+						a.confirmDialog.SetForceOption(false)
+						a.confirmDialog.ShowWithData(
+							"Prune Stale Worktrees?",
+							"This will remove worktree entries whose directories no longer exist.",
+							"prune",
+						)
+					}
+					return a, nil
 				case 'j', 'k':
 					// Handle vim-style navigation
 					if a.tabs.Active() == TabWorktrees || a.tabs.Active() == TabBranches {
@@ -391,6 +403,26 @@ func (a *App) handleConfirmDialogResult(msg ConfirmDialogResultMsg) (tea.Model, 
 		return a, cmd
 	}
 
+	// Handle prune confirmation
+	if action, ok := msg.Data.(string); ok && action == "prune" {
+		output, err := git.PruneWorktrees(a.repoPath)
+		if err != nil {
+			cmd := a.feedback.ShowError("Failed to prune worktrees: " + err.Error())
+			return a, cmd
+		}
+
+		// Refresh the worktree list
+		a.loadWorktrees()
+
+		// Show success message
+		message := "Pruned stale worktrees"
+		if output != "" {
+			message = "Pruned: " + output
+		}
+		cmd := a.feedback.ShowSuccess(message)
+		return a, cmd
+	}
+
 	return a, nil
 }
 
@@ -466,7 +498,7 @@ func (a *App) View() string {
 	}
 
 	// Help text using centralized style
-	helpText := "↑/↓: navigate • Enter: action • n: new worktree • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"
+	helpText := "↑/↓: navigate • Enter: action • n: new worktree • p: prune • Tab: switch tabs • q: quit"
 	b.WriteString(Styles.Help.Render(helpText))
 
 	// If action menu is visible, render it as an overlay

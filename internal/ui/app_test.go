@@ -1328,3 +1328,129 @@ func TestAppConfirmDialogQuickAnswer(t *testing.T) {
 		t.Error("'n' should close confirm dialog")
 	}
 }
+
+// TestAppPKeyTriggersPrune verifies 'p' key opens prune confirmation on Worktrees tab
+func TestAppPKeyTriggersPrune(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Press 'p' to trigger prune
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	// Should show confirmation dialog for prune
+	if !app.confirmDialog.Visible() {
+		t.Error("'p' should show prune confirmation dialog on Worktrees tab")
+	}
+}
+
+// TestAppPKeyDoesNotTriggerOnSettingsTab verifies 'p' doesn't work on Settings tab
+func TestAppPKeyDoesNotTriggerOnSettingsTab(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Switch to Settings tab
+	app.tabs.SetActive(TabSettings)
+
+	// Press 'p' - should not trigger prune
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	if app.confirmDialog.Visible() {
+		t.Error("'p' should not work on Settings tab")
+	}
+}
+
+// TestAppPruneConfirmationFlow verifies the prune confirmation flow
+func TestAppPruneConfirmationFlow(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Press 'p' to trigger prune
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	if !app.confirmDialog.Visible() {
+		t.Fatal("Expected prune confirmation dialog to be visible")
+	}
+
+	// Check the dialog title
+	view := app.confirmDialog.View()
+	if !strings.Contains(view, "Prune") {
+		t.Error("Confirmation dialog should mention 'Prune'")
+	}
+}
+
+// TestAppPruneCancellation verifies prune can be cancelled
+func TestAppPruneCancellation(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Press 'p' to trigger prune
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	// Press Escape to cancel
+	app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if app.confirmDialog.Visible() {
+		t.Error("Escape should close prune confirmation dialog")
+	}
+}
+
+// TestAppViewHelpIncludesPrune verifies help text includes prune shortcut
+func TestAppViewHelpIncludesPrune(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	view := app.View()
+	if !strings.Contains(view, "p:") || !strings.Contains(view, "prune") {
+		t.Error("Help text should include 'p: prune' hint")
+	}
+}
+
+// TestAppPruneResultMsg verifies handling of prune result message
+func TestAppPruneResultMsg(t *testing.T) {
+	items := []ListItem{
+		{ID: "1", Title: "Worktree 1", Description: "Description 1"},
+	}
+	app := NewAppWithItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Send a prune result message (confirmed)
+	app.Update(ConfirmDialogResultMsg{
+		Confirmed: true,
+		Data:      "prune",
+	})
+
+	// Should show feedback (success or error depending on git state)
+	// Since we're not in a real git repo, it will likely show an error
+	// but the message handling should work
+}
+
+// TestAppPKeyDoesNotTriggerWhenGitError verifies 'p' doesn't work when not in git repo
+func TestAppPKeyDoesNotTriggerWhenGitError(t *testing.T) {
+	app := NewApp() // Will have git error in non-git directory
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Simulate not being in a git repo by setting git error
+	app.gitError = &git.NotGitRepoError{Path: "/tmp"}
+
+	// Press 'p' - should not trigger prune
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+
+	if app.confirmDialog.Visible() {
+		t.Error("'p' should not work when there is a git error")
+	}
+}

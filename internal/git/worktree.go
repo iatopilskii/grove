@@ -357,3 +357,61 @@ func HasUncommittedChanges(path string) (bool, error) {
 
 	return len(strings.TrimSpace(string(output))) > 0, nil
 }
+
+// WorktreePruneError is returned when worktree pruning fails.
+type WorktreePruneError struct {
+	Reason string
+}
+
+func (e *WorktreePruneError) Error() string {
+	return fmt.Sprintf("failed to prune worktrees: %s", e.Reason)
+}
+
+// PruneWorktrees removes stale worktree entries from the git repository.
+// Stale entries are worktrees whose directories no longer exist.
+// Returns the output from the git command.
+func PruneWorktrees(dir string) (string, error) {
+	if !IsGitRepository(dir) {
+		return "", &NotGitRepoError{Path: dir}
+	}
+
+	cmd := exec.Command("git", "worktree", "prune")
+	cmd.Dir = dir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		reason := strings.TrimSpace(string(output))
+		if reason == "" {
+			reason = err.Error()
+		}
+		return "", &WorktreePruneError{
+			Reason: reason,
+		}
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
+
+// PruneWorktreesDryRun shows which worktrees would be pruned without actually removing them.
+// Returns the output from the git command.
+func PruneWorktreesDryRun(dir string) (string, error) {
+	if !IsGitRepository(dir) {
+		return "", &NotGitRepoError{Path: dir}
+	}
+
+	cmd := exec.Command("git", "worktree", "prune", "--dry-run")
+	cmd.Dir = dir
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		reason := strings.TrimSpace(string(output))
+		if reason == "" {
+			reason = err.Error()
+		}
+		return "", &WorktreePruneError{
+			Reason: reason,
+		}
+	}
+
+	return strings.TrimSpace(string(output)), nil
+}
