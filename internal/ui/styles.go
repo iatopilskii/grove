@@ -50,6 +50,42 @@ var Colors = struct {
 	OnInfo: lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFFFF"},
 }
 
+// Borders defines thin (single-line) border styles for a minimal visual design.
+// Uses standard box-drawing characters for clean appearance.
+var Borders = struct {
+	// Thin uses single-line box drawing characters (─│┌┐└┘)
+	Thin lipgloss.Border
+	// Rounded uses single-line with rounded corners (╭╮╰╯)
+	Rounded lipgloss.Border
+}{
+	Thin:    lipgloss.NormalBorder(),
+	Rounded: lipgloss.RoundedBorder(),
+}
+
+// Padding defines consistent padding values used throughout the UI.
+// Using consistent values ensures visual harmony.
+var Padding = struct {
+	None   int
+	Small  int
+	Medium int
+}{
+	None:   0,
+	Small:  1,
+	Medium: 2,
+}
+
+// FocusIndicator defines the focus/selection indicator styling.
+// Uses a subtle symbol that is visible but not overly prominent.
+var FocusIndicator = struct {
+	// Symbol shows for the focused/selected item
+	Symbol string
+	// SymbolInactive is whitespace of same width for alignment
+	SymbolInactive string
+}{
+	Symbol:         "▸ ",
+	SymbolInactive: "  ",
+}
+
 // Styles defines reusable lipgloss styles for the application.
 var Styles = struct {
 	// Selected item style
@@ -60,6 +96,13 @@ var Styles = struct {
 	Muted lipgloss.Style
 	// Help text style
 	Help lipgloss.Style
+	// ListItem styles for list view items
+	ListItem struct {
+		Selected lipgloss.Style
+		Normal   lipgloss.Style
+	}
+	// Box style for bordered containers
+	Box lipgloss.Style
 }{
 	Selected: lipgloss.NewStyle().
 		Background(Colors.Primary).
@@ -77,4 +120,24 @@ var Styles = struct {
 
 	Help: lipgloss.NewStyle().
 		Foreground(Colors.TextMuted),
+
+	ListItem: struct {
+		Selected lipgloss.Style
+		Normal   lipgloss.Style
+	}{
+		Selected: lipgloss.NewStyle().
+			Foreground(Colors.Primary).
+			Bold(true).
+			PaddingLeft(0).
+			PaddingRight(1),
+		Normal: lipgloss.NewStyle().
+			Foreground(Colors.Text).
+			PaddingLeft(0).
+			PaddingRight(1),
+	},
+
+	Box: lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(Colors.Border).
+		Padding(0, 1),
 }

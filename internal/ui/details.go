@@ -37,13 +37,7 @@ func (d *Details) SetSize(width, height int) {
 
 // View renders the details pane.
 func (d *Details) View() string {
-	// Border style
-	borderColor := lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	titleColor := lipgloss.AdaptiveColor{Light: "#333333", Dark: "#EEEEEE"}
-	descColor := lipgloss.AdaptiveColor{Light: "#666666", Dark: "#AAAAAA"}
-	placeholderColor := lipgloss.AdaptiveColor{Light: "#888888", Dark: "#666666"}
-
-	// Calculate inner dimensions
+	// Calculate inner dimensions (accounting for border)
 	innerWidth := d.width - 2
 	if innerWidth < 0 {
 		innerWidth = 0
@@ -56,20 +50,17 @@ func (d *Details) View() string {
 	var content string
 	if d.item == nil {
 		// Show placeholder when no item selected
-		placeholderStyle := lipgloss.NewStyle().
-			Foreground(placeholderColor).
-			Italic(true)
-		content = placeholderStyle.Render("Select an item to view details")
+		content = Styles.Muted.Render("Select an item to view details")
 	} else {
-		// Title
+		// Title with primary color for emphasis
 		titleStyle := lipgloss.NewStyle().
-			Foreground(titleColor).
+			Foreground(Colors.Text).
 			Bold(true)
 		title := titleStyle.Render(d.item.Title)
 
-		// Description
+		// Description with muted color
 		descStyle := lipgloss.NewStyle().
-			Foreground(descColor)
+			Foreground(Colors.TextMuted)
 
 		var descLines []string
 		descLines = append(descLines, title)
@@ -82,11 +73,8 @@ func (d *Details) View() string {
 		content = strings.Join(descLines, "\n")
 	}
 
-	// Border style using rounded corners
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(0, 1)
+	// Use centralized box style with thin rounded border
+	boxStyle := Styles.Box
 
 	if innerWidth > 0 {
 		boxStyle = boxStyle.Width(innerWidth)

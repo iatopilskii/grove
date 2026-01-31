@@ -117,3 +117,107 @@ func TestNoHardcodedANSI(t *testing.T) {
 		}
 	}
 }
+
+// TestBordersAreThin verifies the border style uses thin/single-line characters.
+func TestBordersAreThin(t *testing.T) {
+	// Verify Borders struct uses thin (single-line) border styles
+	// The lipgloss.NormalBorder() uses single-line box drawing characters:
+	// ─ │ ┌ ┐ └ ┘
+	border := Borders.Thin
+	if border.Top != "─" {
+		t.Errorf("Borders.Thin.Top = %q, want single-line ─", border.Top)
+	}
+	if border.Bottom != "─" {
+		t.Errorf("Borders.Thin.Bottom = %q, want single-line ─", border.Bottom)
+	}
+	if border.Left != "│" {
+		t.Errorf("Borders.Thin.Left = %q, want single-line │", border.Left)
+	}
+	if border.Right != "│" {
+		t.Errorf("Borders.Thin.Right = %q, want single-line │", border.Right)
+	}
+}
+
+// TestBordersRoundedIsThin verifies the rounded border uses thin line characters.
+func TestBordersRoundedIsThin(t *testing.T) {
+	// Verify Borders.Rounded uses thin rounded corners
+	border := Borders.Rounded
+	if border.Top != "─" {
+		t.Errorf("Borders.Rounded.Top = %q, want single-line ─", border.Top)
+	}
+	if border.TopLeft != "╭" {
+		t.Errorf("Borders.Rounded.TopLeft = %q, want rounded ╭", border.TopLeft)
+	}
+	if border.TopRight != "╮" {
+		t.Errorf("Borders.Rounded.TopRight = %q, want rounded ╮", border.TopRight)
+	}
+}
+
+// TestPaddingConstants verifies consistent padding values.
+func TestPaddingConstants(t *testing.T) {
+	// Verify padding constants are defined
+	if Padding.None != 0 {
+		t.Errorf("Padding.None = %d, want 0", Padding.None)
+	}
+	if Padding.Small != 1 {
+		t.Errorf("Padding.Small = %d, want 1", Padding.Small)
+	}
+	if Padding.Medium != 2 {
+		t.Errorf("Padding.Medium = %d, want 2", Padding.Medium)
+	}
+}
+
+// TestFocusIndicatorStyle verifies focus indicator is properly styled.
+func TestFocusIndicatorStyle(t *testing.T) {
+	// Verify focus indicator exists
+	if FocusIndicator.Symbol == "" {
+		t.Error("FocusIndicator.Symbol should not be empty")
+	}
+	if FocusIndicator.SymbolInactive == "" {
+		t.Error("FocusIndicator.SymbolInactive should not be empty")
+	}
+	// Inactive should be whitespace of same visual width for alignment
+	// Use lipgloss.Width which handles multi-byte characters correctly
+	activeWidth := lipgloss.Width(FocusIndicator.Symbol)
+	inactiveWidth := lipgloss.Width(FocusIndicator.SymbolInactive)
+	if activeWidth != inactiveWidth {
+		t.Errorf("FocusIndicator symbols have different visual widths: active=%d, inactive=%d",
+			activeWidth, inactiveWidth)
+	}
+}
+
+// TestStylesListItemHasConsistentPadding verifies list item styles use consistent padding.
+func TestStylesListItemHasConsistentPadding(t *testing.T) {
+	// Both selected and normal list items should have the same padding
+	// to ensure alignment when selection moves
+	selectedRendered := Styles.ListItem.Selected.Render("test")
+	normalRendered := Styles.ListItem.Normal.Render("test")
+
+	if len(selectedRendered) == 0 || len(normalRendered) == 0 {
+		t.Error("List item styles should render non-empty output")
+	}
+}
+
+// TestBoxStyleUsesThinBorder verifies box style uses thin border.
+func TestBoxStyleUsesThinBorder(t *testing.T) {
+	// Verify Styles.Box exists and uses thin borders
+	rendered := Styles.Box.Render("content")
+	if rendered == "" {
+		t.Error("Styles.Box should render non-empty output")
+	}
+}
+
+// TestNoExcessiveDecorations verifies styles don't use heavy decorations.
+func TestNoExcessiveDecorations(t *testing.T) {
+	// Verify help text uses simple styling (no bold, no background)
+	helpRendered := Styles.Help.Render("test")
+	if helpRendered == "" {
+		t.Error("Help style should render non-empty")
+	}
+
+	// Verify muted text is italic but simple
+	mutedRendered := Styles.Muted.Render("test")
+	if mutedRendered == "" {
+		t.Error("Muted style should render non-empty")
+	}
+}

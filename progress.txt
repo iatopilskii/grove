@@ -396,3 +396,54 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### STYLE-002: Minimal and Clean Visual Design (COMPLETED)
+
+**Task**: Minimal and clean visual design with thin borders, consistent padding, and subtle focus indicator
+
+**Implementation**:
+- Extended `internal/ui/styles.go` with centralized styling constants:
+  - `Borders` struct with `Thin` (NormalBorder) and `Rounded` (RoundedBorder) for single-line box drawing
+  - `Padding` struct with `None` (0), `Small` (1), `Medium` (2) for consistent spacing
+  - `FocusIndicator` struct with `Symbol` (▸) and `SymbolInactive` (whitespace) for subtle selection
+  - `Styles.ListItem` with `Selected` and `Normal` styles using text color instead of background
+  - `Styles.Box` for bordered containers using thin rounded corners
+- Updated `list.go` to use centralized `Styles.ListItem` and `FocusIndicator`:
+  - Focus indicator is now subtle: primary color text with ▸ symbol (no background)
+  - Consistent padding using `FocusIndicator.Symbol` width calculation
+- Updated `details.go` to use centralized `Styles.Box`:
+  - Uses thin rounded border from `Borders.Rounded`
+  - Consistent colors from `Colors` palette
+- Updated `actionmenu.go` to use centralized styles:
+  - Uses `Styles.ListItem` for action items
+  - Uses `FocusIndicator` for selection indicator
+  - Uses `Styles.Box` with consistent padding
+- Updated `tabs.go` to use centralized styles:
+  - Active tab uses primary color text (no background) for subtle indication
+  - Thin border using `Borders.Thin.Bottom` character
+  - Consistent padding from `Padding.Medium`
+- Updated `app.go` to use `Styles.Help` for help text
+
+**Verification Steps Passed**:
+- [x] Borders are thin (single-line box drawing) - uses lipgloss.NormalBorder() and RoundedBorder()
+- [x] No excessive decorations or ASCII art - clean, minimal styling
+- [x] Consistent padding/margins - centralized Padding constants used throughout
+- [x] Focus indicator is subtle but visible - ▸ symbol with primary color text (no background)
+
+**Tests** (styles_test.go - new tests):
+- `TestBordersAreThin` - verifies Borders.Thin uses single-line characters (─│┌┐└┘)
+- `TestBordersRoundedIsThin` - verifies Borders.Rounded uses thin rounded corners (╭╮)
+- `TestPaddingConstants` - verifies Padding.None=0, Small=1, Medium=2
+- `TestFocusIndicatorStyle` - verifies focus symbols have same visual width
+- `TestStylesListItemHasConsistentPadding` - verifies list item styles render correctly
+- `TestBoxStyleUsesThinBorder` - verifies Styles.Box renders with border
+- `TestNoExcessiveDecorations` - verifies Help and Muted styles are simple
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 191 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

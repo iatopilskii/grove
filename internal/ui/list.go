@@ -193,28 +193,19 @@ func (l *List) Update(msg tea.Msg) tea.Cmd {
 // View renders the list.
 func (l *List) View() string {
 	if len(l.items) == 0 {
-		emptyStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "#888888", Dark: "#666666"}).
-			Italic(true)
-		return emptyStyle.Render("No items")
+		return Styles.Muted.Render("No items")
 	}
 
-	// Calculate effective width
-	effectiveWidth := l.width - 2
+	// Calculate effective width for content (excluding focus indicator)
+	effectiveWidth := l.width - lipgloss.Width(FocusIndicator.Symbol)
 	if effectiveWidth < 0 {
 		effectiveWidth = 0
 	}
 
-	// Define styles
-	selectedStyle := lipgloss.NewStyle().
-		Background(lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}).
-		Foreground(lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFFFF"}).
-		Bold(true).
-		Padding(0, 1)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.AdaptiveColor{Light: "#333333", Dark: "#CCCCCC"}).
-		Padding(0, 1)
+	// Use centralized styles for minimal, clean design
+	// Focus indicator is subtle: colored text with indicator symbol, no background
+	selectedStyle := Styles.ListItem.Selected
+	normalStyle := Styles.ListItem.Normal
 
 	// Apply width if set
 	if effectiveWidth > 0 {
@@ -222,16 +213,12 @@ func (l *List) View() string {
 		normalStyle = normalStyle.Width(effectiveWidth)
 	}
 
-	// Selection indicator
-	selectedPrefix := "▸ "
-	normalPrefix := "  "
-
 	var lines []string
 	for i, item := range l.items {
 		if i == l.selected {
-			lines = append(lines, selectedStyle.Render(selectedPrefix+item.Title))
+			lines = append(lines, FocusIndicator.Symbol+selectedStyle.Render(item.Title))
 		} else {
-			lines = append(lines, normalStyle.Render(normalPrefix+item.Title))
+			lines = append(lines, FocusIndicator.SymbolInactive+normalStyle.Render(item.Title))
 		}
 	}
 

@@ -112,7 +112,7 @@
         "Consistent padding/margins",
         "Focus indicator is subtle but visible"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "STYLE-003",

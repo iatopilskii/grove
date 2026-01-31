@@ -167,17 +167,9 @@ func (m *ActionMenu) View() string {
 		return ""
 	}
 
-	// Colors
-	borderColor := lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	titleColor := lipgloss.AdaptiveColor{Light: "#333333", Dark: "#EEEEEE"}
-	selectedBg := lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	selectedFg := lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFFFF"}
-	normalFg := lipgloss.AdaptiveColor{Light: "#333333", Dark: "#CCCCCC"}
-	descColor := lipgloss.AdaptiveColor{Light: "#666666", Dark: "#888888"}
-
 	// Title
 	titleStyle := lipgloss.NewStyle().
-		Foreground(titleColor).
+		Foreground(Colors.Text).
 		Bold(true).
 		MarginBottom(1)
 
@@ -186,21 +178,14 @@ func (m *ActionMenu) View() string {
 		title = "Actions: " + m.item.Title
 	}
 
-	// Action items
-	selectedStyle := lipgloss.NewStyle().
-		Background(selectedBg).
-		Foreground(selectedFg).
-		Bold(true).
-		Padding(0, 1)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(normalFg).
-		Padding(0, 1)
+	// Use centralized list item styles with focus indicator
+	selectedStyle := Styles.ListItem.Selected
+	normalStyle := Styles.ListItem.Normal
 
 	descStyle := lipgloss.NewStyle().
-		Foreground(descColor).
+		Foreground(Colors.TextMuted).
 		Italic(true).
-		PaddingLeft(3)
+		PaddingLeft(lipgloss.Width(FocusIndicator.Symbol))
 
 	var lines []string
 	lines = append(lines, titleStyle.Render(title))
@@ -208,29 +193,24 @@ func (m *ActionMenu) View() string {
 	for i, action := range m.actions {
 		var line string
 		if i == m.selected {
-			line = selectedStyle.Render("▸ " + action.Label)
+			line = FocusIndicator.Symbol + selectedStyle.Render(action.Label)
 			if action.Description != "" {
 				line += "\n" + descStyle.Render(action.Description)
 			}
 		} else {
-			line = normalStyle.Render("  " + action.Label)
+			line = FocusIndicator.SymbolInactive + normalStyle.Render(action.Label)
 		}
 		lines = append(lines, line)
 	}
 
-	// Add help text
-	helpStyle := lipgloss.NewStyle().
-		Foreground(descColor).
-		MarginTop(1)
+	// Add help text using centralized style
+	helpStyle := Styles.Help.MarginTop(1)
 	lines = append(lines, helpStyle.Render("↑/↓: navigate • Enter: select • Esc: cancel"))
 
 	content := strings.Join(lines, "\n")
 
-	// Box style
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(borderColor).
-		Padding(1, 2)
+	// Box style with thin border and consistent padding
+	boxStyle := Styles.Box.Padding(Padding.Small, Padding.Medium)
 
 	return boxStyle.Render(content)
 }

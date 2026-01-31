@@ -242,10 +242,8 @@ func (a *App) View() string {
 		b.WriteString("\n\n")
 	}
 
-	// Help text - update to include Enter key hint
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.AdaptiveColor{Light: "#666666", Dark: "#888888"})
-	b.WriteString(helpStyle.Render("↑/↓: navigate • Enter: action • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"))
+	// Help text using centralized style
+	b.WriteString(Styles.Help.Render("↑/↓: navigate • Enter: action • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"))
 
 	// If action menu is visible, render it as an overlay
 	if a.actionMenu.Visible() {

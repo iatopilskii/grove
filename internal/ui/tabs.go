@@ -130,25 +130,18 @@ func (t *Tabs) Update(msg tea.Msg) tea.Cmd {
 
 // View renders the tab bar.
 func (t *Tabs) View() string {
-	// Define adaptive colors for light/dark mode support
-	activeTabBg := lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	activeTabFg := lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#FFFFFF"}
-	inactiveTabFg := lipgloss.AdaptiveColor{Light: "#666666", Dark: "#888888"}
-	borderColor := lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-
-	// Base tab style
+	// Base tab style with consistent padding
 	tabStyle := lipgloss.NewStyle().
-		Padding(0, 2)
+		Padding(0, Padding.Medium)
 
-	// Active tab style
+	// Active tab: subtle underline effect via primary color text
 	activeStyle := tabStyle.
-		Background(activeTabBg).
-		Foreground(activeTabFg).
+		Foreground(Colors.Primary).
 		Bold(true)
 
-	// Inactive tab style
+	// Inactive tab: muted color
 	inactiveStyle := tabStyle.
-		Foreground(inactiveTabFg)
+		Foreground(Colors.TextMuted)
 
 	// Build tab bar
 	var tabs []string
@@ -162,10 +155,10 @@ func (t *Tabs) View() string {
 
 	row := lipgloss.JoinHorizontal(lipgloss.Top, tabs...)
 
-	// Add border below tabs
+	// Add thin border below tabs using single-line character
 	border := lipgloss.NewStyle().
-		Foreground(borderColor).
-		Render(strings.Repeat("─", max(t.width, lipgloss.Width(row))))
+		Foreground(Colors.Border).
+		Render(strings.Repeat(Borders.Thin.Bottom, max(t.width, lipgloss.Width(row))))
 
 	return row + "\n" + border
 }
