@@ -109,14 +109,15 @@ func TestAppViewShowsActiveTabContent(t *testing.T) {
 		tab            Tab
 		expectedPhrase string
 	}{
-		{TabWorktrees, "Worktrees content"},
-		{TabBranches, "Branches content"},
+		{TabWorktrees, "main"}, // List shows worktree names
+		{TabBranches, "main"},  // Branches tab also shows list
 		{TabSettings, "Settings content"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.tab.String(), func(t *testing.T) {
 			app := NewApp()
+			app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 			app.tabs.SetActive(tt.tab)
 			view := app.View()
 			if !strings.Contains(view, tt.expectedPhrase) {
@@ -173,5 +174,112 @@ func TestAppTabCycling(t *testing.T) {
 		if app.tabs.Active() != expected {
 			t.Errorf("tab cycling: got %v, want %v", app.tabs.Active(), expected)
 		}
+	}
+}
+
+// TestAppHasList verifies App has a list component
+func TestAppHasList(t *testing.T) {
+	app := NewApp()
+	if app.list == nil {
+		t.Error("App should have a list component")
+	}
+}
+
+// TestAppHasDetails verifies App has a details component
+func TestAppHasDetails(t *testing.T) {
+	app := NewApp()
+	if app.details == nil {
+		t.Error("App should have a details component")
+	}
+}
+
+// TestAppViewShowsList verifies View includes list pane
+func TestAppViewShowsList(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	view := app.View()
+
+	// List should show items when on Worktrees tab
+	if !strings.Contains(view, "▸") {
+		t.Error("View() should show list selection indicator")
+	}
+}
+
+// TestAppViewShowsDetails verifies View includes details pane
+func TestAppViewShowsDetails(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	view := app.View()
+
+	// Details should show border (rounded corners)
+	hasBorder := strings.Contains(view, "─") || strings.Contains(view, "│") ||
+		strings.Contains(view, "╭") || strings.Contains(view, "╰")
+	if !hasBorder {
+		t.Error("View() should show details pane border")
+	}
+}
+
+// TestAppListNavigationDown verifies arrow key navigation in list
+func TestAppListNavigationDown(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	initial := app.list.Selected()
+	app.Update(tea.KeyMsg{Type: tea.KeyDown})
+	after := app.list.Selected()
+
+	if after != initial+1 {
+		t.Errorf("after KeyDown, list selection = %d, want %d", after, initial+1)
+	}
+}
+
+// TestAppListNavigationUp verifies arrow key navigation in list
+func TestAppListNavigationUp(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Move down first, then up
+	app.Update(tea.KeyMsg{Type: tea.KeyDown})
+	app.Update(tea.KeyMsg{Type: tea.KeyUp})
+
+	if app.list.Selected() != 0 {
+		t.Errorf("after KeyDown then KeyUp, list selection = %d, want 0", app.list.Selected())
+	}
+}
+
+// TestAppDetailsUpdatesWithSelection verifies details pane updates when list selection changes
+func TestAppDetailsUpdatesWithSelection(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Get initial details item
+	initial := app.details.Item()
+	if initial == nil {
+		t.Fatal("details should have an item when list has selection")
+	}
+
+	// Move selection
+	app.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+	// Details should update
+	after := app.details.Item()
+	if after == nil {
+		t.Fatal("details should still have an item after selection change")
+	}
+	if initial.ID == after.ID {
+		t.Error("details item should change when list selection changes")
+	}
+}
+
+// TestAppViewRendersBothPanes verifies both panes are rendered in view
+func TestAppViewRendersBothPanes(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	view := app.View()
+
+	// Should have multiple lines showing list items
+	lines := strings.Split(view, "\n")
+	if len(lines) < 5 {
+		t.Errorf("View() should have multiple lines for two-pane layout, got %d lines", len(lines))
 	}
 }

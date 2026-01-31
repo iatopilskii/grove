@@ -53,7 +53,7 @@
         "Selection in list updates details pane",
         "Both panes render within terminal bounds"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NAV-001",

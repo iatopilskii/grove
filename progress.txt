@@ -91,3 +91,83 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### UI-003: Two-Pane Layout (COMPLETED)
+
+**Task**: Two-pane layout: list view (top/left) and details view (bottom/right)
+
+**Implementation**:
+- Created `internal/ui/list.go` with List component for displaying scrollable items
+- Created `internal/ui/details.go` with Details component for showing item information
+- Implemented `ListItem` struct with ID, Title, and Description fields
+- List component features:
+  - Up/Down arrow key navigation
+  - Vim-style j/k navigation
+  - Selection indicator (▸) for current item
+  - Bounds checking (stops at boundaries, no wrap)
+  - Adaptive styling for light/dark mode
+- Details component features:
+  - Rounded border using lipgloss
+  - Displays item title (bold) and description
+  - Placeholder text when no item selected
+  - Adaptive colors for light/dark mode
+- Integrated both components into App:
+  - Side-by-side layout (40% list, 60% details)
+  - Selection in list updates details pane
+  - Window size updates propagate to pane sizes
+  - Navigation works on Worktrees and Branches tabs
+
+**Verification Steps Passed**:
+- [x] List pane shows scrollable items
+- [x] Details pane shows info for selected item
+- [x] Selection in list updates details pane
+- [x] Both panes render within terminal bounds
+
+**Tests** (list_test.go):
+- `TestNewList` - verifies constructor with items
+- `TestNewListEmpty` - verifies constructor with nil
+- `TestListSelected` - verifies Selected() getter
+- `TestListSetSelected` - table-driven bounds checking tests
+- `TestListMoveDown` - verifies down navigation with boundary stop
+- `TestListMoveUp` - verifies up navigation with boundary stop
+- `TestListMoveDownEmpty` / `TestListMoveUpEmpty` - empty list handling
+- `TestListSelectedItem` - verifies SelectedItem() getter
+- `TestListSelectedItemEmpty` - nil return for empty list
+- `TestListUpdateArrowKeys` - arrow key message handling
+- `TestListUpdateJKKeys` - vim-style j/k navigation
+- `TestListSetSize` - dimension setting
+- `TestListViewShowsItems` - items appear in view
+- `TestListViewHighlightsSelected` - selection changes view
+- `TestListViewEmptyMessage` - empty list shows message
+- `TestListItems` / `TestListSetItems` - items getter/setter
+- `TestListSetItemsResetsSelection` - selection clamps on new items
+
+**Tests** (details_test.go):
+- `TestNewDetails` - verifies constructor
+- `TestDetailsSetItem` / `TestDetailsSetItemNil` - item setting
+- `TestDetailsSetSize` - dimension setting
+- `TestDetailsViewEmpty` - placeholder for no item
+- `TestDetailsViewShowsTitle` - title appears in view
+- `TestDetailsViewShowsDescription` - description appears
+- `TestDetailsViewUpdatesWithItem` - view changes with item
+- `TestDetailsViewWithBorder` - border characters present
+- `TestDetailsItem` - item getter
+
+**Tests** (app_test.go - additions):
+- `TestAppHasList` - verifies App has list component
+- `TestAppHasDetails` - verifies App has details component
+- `TestAppViewShowsList` - list selection indicator in view
+- `TestAppViewShowsDetails` - details border in view
+- `TestAppListNavigationDown` - arrow down moves selection
+- `TestAppListNavigationUp` - arrow up moves selection
+- `TestAppDetailsUpdatesWithSelection` - details sync with list
+- `TestAppViewRendersBothPanes` - multi-line layout verification
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 84 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+
