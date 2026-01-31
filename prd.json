@@ -220,7 +220,7 @@
         "Binary runs without runtime errors",
         "Builds on Linux, macOS, Windows"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
