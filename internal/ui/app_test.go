@@ -529,3 +529,299 @@ func TestAppMouseOnSettingsTab(t *testing.T) {
 		t.Errorf("mouse click should not change list selection on Settings tab, got %d want %d", app.list.Selected(), initial)
 	}
 }
+
+// TestAppHasActionMenu verifies App has an action menu component
+func TestAppHasActionMenu(t *testing.T) {
+	app := NewApp()
+	if app.actionMenu == nil {
+		t.Error("App should have an action menu component")
+	}
+}
+
+// TestAppHasFeedback verifies App has a feedback component
+func TestAppHasFeedback(t *testing.T) {
+	app := NewApp()
+	if app.feedback == nil {
+		t.Error("App should have a feedback component")
+	}
+}
+
+// TestAppEnterOpensActionMenu verifies Enter key opens action menu on Worktrees tab
+func TestAppEnterOpensActionMenu(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Press Enter
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !app.actionMenu.Visible() {
+		t.Error("Enter key should open action menu")
+	}
+	if app.actionMenu.Item() == nil {
+		t.Error("Action menu should have the selected item")
+	}
+}
+
+// TestAppEnterOpensActionMenuOnBranchesTab verifies Enter works on Branches tab
+func TestAppEnterOpensActionMenuOnBranchesTab(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app.tabs.SetActive(TabBranches)
+
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !app.actionMenu.Visible() {
+		t.Error("Enter key should open action menu on Branches tab")
+	}
+}
+
+// TestAppEnterDoesNotOpenOnSettingsTab verifies Enter doesn't open menu on Settings
+func TestAppEnterDoesNotOpenOnSettingsTab(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app.tabs.SetActive(TabSettings)
+
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if app.actionMenu.Visible() {
+		t.Error("Enter key should not open action menu on Settings tab")
+	}
+}
+
+// TestAppEscapeClosesActionMenu verifies Escape closes action menu
+func TestAppEscapeClosesActionMenu(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open action menu
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !app.actionMenu.Visible() {
+		t.Fatal("Action menu should be visible after Enter")
+	}
+
+	// Press Escape
+	app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if app.actionMenu.Visible() {
+		t.Error("Escape key should close action menu")
+	}
+}
+
+// TestAppActionMenuRoutesKeys verifies keys go to action menu when visible
+func TestAppActionMenuRoutesKeys(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open action menu
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	initialSelection := app.actionMenu.Selected()
+
+	// Press Down in action menu
+	app.Update(tea.KeyMsg{Type: tea.KeyDown})
+
+	if app.actionMenu.Selected() != initialSelection+1 {
+		t.Errorf("Down key should navigate action menu, selection = %d, want %d", app.actionMenu.Selected(), initialSelection+1)
+	}
+}
+
+// TestAppActionMenuEnterExecutesAction verifies Enter in menu executes action
+func TestAppActionMenuEnterExecutesAction(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open action menu
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Press Enter to execute action
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Menu should close
+	if app.actionMenu.Visible() {
+		t.Error("Action menu should close after executing action")
+	}
+
+	// Should return a command
+	if cmd == nil {
+		t.Error("Executing action should return a command")
+	}
+}
+
+// TestAppActionExecutedShowsFeedback verifies action execution shows feedback
+func TestAppActionExecutedShowsFeedback(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Send an ActionExecutedMsg directly
+	action := &Action{ID: "open", Label: "Open"}
+	item := &ListItem{ID: "test", Title: "Test Worktree"}
+	app.Update(ActionExecutedMsg{Action: action, Item: item})
+
+	if !app.feedback.Visible() {
+		t.Error("Feedback should be visible after action executed")
+	}
+}
+
+// TestAppCtrlCQuitsEvenWithMenuOpen verifies Ctrl+C quits even with menu open
+func TestAppCtrlCQuitsEvenWithMenuOpen(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open action menu
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Press Ctrl+C
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+
+	if !app.quitting {
+		t.Error("Ctrl+C should set quitting to true even with menu open")
+	}
+	if cmd == nil {
+		t.Error("Ctrl+C should return quit command")
+	}
+}
+
+// TestAppViewShowsActionMenu verifies View includes action menu when visible
+func TestAppViewShowsActionMenu(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open action menu
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	view := app.View()
+
+	// Should contain action menu elements
+	if !strings.Contains(view, "Actions") {
+		t.Error("View should show action menu title")
+	}
+	if !strings.Contains(view, "Open") {
+		t.Error("View should show Open action")
+	}
+	if !strings.Contains(view, "Esc") {
+		t.Error("View should show Esc hint in action menu")
+	}
+}
+
+// TestAppViewShowsFeedback verifies View includes feedback when visible
+func TestAppViewShowsFeedback(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Show feedback
+	app.feedback.ShowSuccess("Test message")
+
+	view := app.View()
+
+	if !strings.Contains(view, "Test message") {
+		t.Error("View should show feedback message")
+	}
+}
+
+// TestAppViewHelpIncludesEnter verifies help text includes Enter key
+func TestAppViewHelpIncludesEnter(t *testing.T) {
+	app := NewApp()
+	view := app.View()
+
+	if !strings.Contains(view, "Enter") {
+		t.Error("Help text should include Enter key hint")
+	}
+}
+
+// TestAppClearFeedbackMsg verifies ClearFeedbackMsg clears feedback
+func TestAppClearFeedbackMsg(t *testing.T) {
+	app := NewApp()
+	app.feedback.ShowSuccess("Test")
+
+	app.Update(ClearFeedbackMsg{})
+
+	if app.feedback.Visible() {
+		t.Error("Feedback should be cleared after ClearFeedbackMsg")
+	}
+}
+
+// TestAppActionMenuJKNavigation verifies j/k work in action menu
+func TestAppActionMenuJKNavigation(t *testing.T) {
+	app := NewApp()
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	// Open action menu
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Press j to move down
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+
+	if app.actionMenu.Selected() != 1 {
+		t.Errorf("'j' should move action menu selection down, got %d", app.actionMenu.Selected())
+	}
+
+	// Press k to move up
+	app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+
+	if app.actionMenu.Selected() != 0 {
+		t.Errorf("'k' should move action menu selection up, got %d", app.actionMenu.Selected())
+	}
+}
+
+// TestAppEnterWithEmptyList verifies Enter does nothing with empty list
+func TestAppEnterWithEmptyList(t *testing.T) {
+	app := NewApp()
+	app.list.SetItems(nil) // Empty list
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+
+	app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if app.actionMenu.Visible() {
+		t.Error("Enter should not open action menu when list is empty")
+	}
+}
+
+// TestAppHandleActionExecutedOpen verifies open action shows success
+func TestAppHandleActionExecutedOpen(t *testing.T) {
+	app := NewApp()
+
+	action := &Action{ID: "open", Label: "Open"}
+	item := &ListItem{ID: "test", Title: "Test"}
+	app.Update(ActionExecutedMsg{Action: action, Item: item})
+
+	if app.feedback.Type() != FeedbackSuccess {
+		t.Errorf("Open action should show success feedback, got %v", app.feedback.Type())
+	}
+}
+
+// TestAppHandleActionExecutedDelete verifies delete action shows info
+func TestAppHandleActionExecutedDelete(t *testing.T) {
+	app := NewApp()
+
+	action := &Action{ID: "delete", Label: "Delete"}
+	item := &ListItem{ID: "test", Title: "Test"}
+	app.Update(ActionExecutedMsg{Action: action, Item: item})
+
+	if app.feedback.Type() != FeedbackInfo {
+		t.Errorf("Delete action should show info feedback, got %v", app.feedback.Type())
+	}
+}
+
+// TestAppHandleActionExecutedUnknown verifies unknown action shows error
+func TestAppHandleActionExecutedUnknown(t *testing.T) {
+	app := NewApp()
+
+	action := &Action{ID: "unknown", Label: "Unknown"}
+	item := &ListItem{ID: "test", Title: "Test"}
+	app.Update(ActionExecutedMsg{Action: action, Item: item})
+
+	if app.feedback.Type() != FeedbackError {
+		t.Errorf("Unknown action should show error feedback, got %v", app.feedback.Type())
+	}
+}
+
+// TestAppHandleActionExecutedNilAction verifies nil action is handled
+func TestAppHandleActionExecutedNilAction(t *testing.T) {
+	app := NewApp()
+
+	// Should not panic
+	app.Update(ActionExecutedMsg{Action: nil, Item: nil})
+
+	if app.feedback.Visible() {
+		t.Error("Nil action should not show feedback")
+	}
+}

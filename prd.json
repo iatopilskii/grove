@@ -88,7 +88,7 @@
         "Action feedback shown (success/error message)",
         "Escape cancels action dialogs"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "STYLE-001",

@@ -19,6 +19,10 @@ type App struct {
 	list *List
 	// details is the details pane component
 	details *Details
+	// actionMenu is the action menu modal
+	actionMenu *ActionMenu
+	// feedback is the feedback message component
+	feedback *Feedback
 	// width is the terminal width
 	width int
 	// height is the terminal height
@@ -43,9 +47,11 @@ func NewApp() *App {
 	}
 
 	return &App{
-		tabs:    NewTabs(),
-		list:    list,
-		details: details,
+		tabs:       NewTabs(),
+		list:       list,
+		details:    details,
+		actionMenu: NewActionMenu(),
+		feedback:   NewFeedback(),
 	}
 }
 
@@ -58,6 +64,28 @@ func (a *App) Init() tea.Cmd {
 // Update handles incoming messages and updates the model accordingly.
 // It returns the updated model and any command to execute.
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle action execution results
+	switch msg := msg.(type) {
+	case ActionExecutedMsg:
+		return a.handleActionExecuted(msg)
+	case ClearFeedbackMsg:
+		a.feedback.Update(msg)
+		return a, nil
+	}
+
+	// If action menu is visible, route all key events to it
+	if a.actionMenu.Visible() {
+		if keyMsg, ok := msg.(tea.KeyMsg); ok {
+			// Allow Ctrl+C to quit even with menu open
+			if keyMsg.Type == tea.KeyCtrlC {
+				a.quitting = true
+				return a, tea.Quit
+			}
+			cmd := a.actionMenu.Update(keyMsg)
+			return a, cmd
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
@@ -73,6 +101,20 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case tea.KeyTab, tea.KeyShiftTab:
 			a.tabs.Update(msg)
+			return a, nil
+		case tea.KeyEnter:
+			// Open action menu on Worktrees or Branches tabs
+			if a.tabs.Active() == TabWorktrees || a.tabs.Active() == TabBranches {
+				if item := a.list.SelectedItem(); item != nil {
+					a.actionMenu.Show(item)
+				}
+			}
+			return a, nil
+		case tea.KeyEsc:
+			// Escape cancels action menu (if visible)
+			if a.actionMenu.Visible() {
+				a.actionMenu.Hide()
+			}
 			return a, nil
 		case tea.KeyUp, tea.KeyDown, tea.KeyPgUp, tea.KeyPgDown:
 			// Handle list navigation on Worktrees and Branches tabs
@@ -113,6 +155,35 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	return a, nil
+}
+
+// handleActionExecuted processes an action that was executed from the menu.
+func (a *App) handleActionExecuted(msg ActionExecutedMsg) (tea.Model, tea.Cmd) {
+	if msg.Action == nil {
+		return a, nil
+	}
+
+	// Execute the action and show feedback
+	switch msg.Action.ID {
+	case "open":
+		// For now, just show success feedback
+		// In a real implementation, this would open a terminal at the worktree path
+		cmd := a.feedback.ShowSuccess("Opened worktree: " + msg.Item.Title)
+		return a, cmd
+	case "cd":
+		// For now, just show success feedback
+		// In a real implementation, this would copy the path to clipboard
+		cmd := a.feedback.ShowSuccess("Path copied to clipboard")
+		return a, cmd
+	case "delete":
+		// For now, just show info feedback
+		// In a real implementation, this would prompt for confirmation
+		cmd := a.feedback.ShowInfo("Delete action: " + msg.Item.Title + " (not implemented)")
+		return a, cmd
+	default:
+		cmd := a.feedback.ShowError("Unknown action: " + msg.Action.ID)
+		return a, cmd
+	}
 }
 
 // updatePaneSizes updates the sizes of list and details panes based on terminal size.
@@ -165,10 +236,22 @@ func (a *App) View() string {
 
 	b.WriteString("\n\n")
 
-	// Help text
+	// Show feedback message if visible
+	if a.feedback.Visible() {
+		b.WriteString(a.feedback.View())
+		b.WriteString("\n\n")
+	}
+
+	// Help text - update to include Enter key hint
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.AdaptiveColor{Light: "#666666", Dark: "#888888"})
-	b.WriteString(helpStyle.Render("↑/↓: navigate • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"))
+	b.WriteString(helpStyle.Render("↑/↓: navigate • Enter: action • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"))
+
+	// If action menu is visible, render it as an overlay
+	if a.actionMenu.Visible() {
+		b.WriteString("\n\n")
+		b.WriteString(a.actionMenu.View())
+	}
 
 	return b.String()
 }

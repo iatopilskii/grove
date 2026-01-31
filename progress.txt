@@ -271,3 +271,90 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### NAV-003: Enter Key Triggers Action on Selected Item (COMPLETED)
+
+**Task**: Enter key triggers action on selected item
+
+**Implementation**:
+- Created `internal/ui/actionmenu.go` with ActionMenu component for displaying available actions
+- Created `internal/ui/feedback.go` with Feedback component for showing success/error/info messages
+- ActionMenu features:
+  - Modal dialog that appears when Enter is pressed on a worktree
+  - Displays available actions: Open, Copy Path, Delete
+  - Up/Down arrow and j/k keys for navigation
+  - Enter key executes selected action
+  - Escape key cancels and closes the menu
+  - Visual styling with selection indicator (▸)
+  - Help text showing available keyboard shortcuts
+- Feedback component features:
+  - Shows temporary feedback messages (auto-clears after 3 seconds)
+  - Three types: Success (✓), Error (✗), Info (ℹ)
+  - Adaptive colors for light/dark terminal modes
+  - ClearFeedbackMsg for programmatic clearing
+- App integration:
+  - Enter key opens ActionMenu on Worktrees and Branches tabs
+  - Escape key closes ActionMenu when visible
+  - All key events routed to ActionMenu when visible
+  - ActionExecutedMsg triggers action handling and feedback display
+  - Ctrl+C still quits even with menu open
+  - Help text updated to include Enter key hint
+
+**Verification Steps Passed**:
+- [x] Enter on worktree opens action menu or executes default action
+- [x] Action feedback shown (success/error message)
+- [x] Escape cancels action dialogs
+
+**Tests** (actionmenu_test.go - 24 tests):
+- `TestNewActionMenu` - verifies constructor
+- `TestActionMenuShow` - verifies Show makes menu visible
+- `TestActionMenuHide` - verifies Hide closes menu
+- `TestActionMenuMoveDown` / `TestActionMenuMoveUp` - navigation
+- `TestActionMenuMoveDownAtBoundary` / `TestActionMenuMoveUpAtBoundary` - boundary behavior
+- `TestActionMenuMoveDownEmpty` / `TestActionMenuMoveUpEmpty` - empty list handling
+- `TestActionMenuSelectedAction` / `TestActionMenuSelectedActionEmpty` - selection getters
+- `TestActionMenuSetActions` / `TestActionMenuSetActionsClampsSelection` - action management
+- `TestActionMenuUpdateEscape` - Escape key closes menu
+- `TestActionMenuUpdateArrowKeys` - arrow key navigation
+- `TestActionMenuUpdateJKKeys` - vim-style navigation
+- `TestActionMenuUpdateEnter` - Enter executes action
+- `TestActionMenuUpdateWhenHidden` - hidden state handling
+- `TestActionMenuView` / `TestActionMenuViewWhenHidden` - rendering
+- `TestActionMenuViewShowsSelectedDescription` - description display
+- `TestDefaultWorktreeActions` - default actions verification
+- `TestActionMenuSetSize` - dimension setting
+
+**Tests** (feedback_test.go - 15 tests):
+- `TestNewFeedback` - verifies constructor
+- `TestFeedbackShowSuccess` / `TestFeedbackShowError` / `TestFeedbackShowInfo` - message types
+- `TestFeedbackClear` - manual clearing
+- `TestFeedbackUpdateClearMsg` - message-based clearing
+- `TestFeedbackSetDuration` - duration configuration
+- `TestFeedbackViewSuccess` / `TestFeedbackViewError` / `TestFeedbackViewInfo` - rendering
+- `TestFeedbackViewWhenHidden` / `TestFeedbackViewAfterClear` - hidden state
+- `TestFeedbackTypeConstants` - type distinctness
+
+**Tests** (app_test.go - 18 new tests):
+- `TestAppHasActionMenu` / `TestAppHasFeedback` - component existence
+- `TestAppEnterOpensActionMenu` / `TestAppEnterOpensActionMenuOnBranchesTab` - Enter key
+- `TestAppEnterDoesNotOpenOnSettingsTab` - tab restriction
+- `TestAppEscapeClosesActionMenu` - Escape handling
+- `TestAppActionMenuRoutesKeys` - key routing when menu visible
+- `TestAppActionMenuEnterExecutesAction` - action execution
+- `TestAppActionExecutedShowsFeedback` - feedback integration
+- `TestAppCtrlCQuitsEvenWithMenuOpen` - quit override
+- `TestAppViewShowsActionMenu` / `TestAppViewShowsFeedback` - view integration
+- `TestAppViewHelpIncludesEnter` - help text update
+- `TestAppClearFeedbackMsg` - feedback clearing
+- `TestAppActionMenuJKNavigation` - vim keys in menu
+- `TestAppEnterWithEmptyList` - empty list handling
+- `TestAppHandleActionExecutedOpen` / `TestAppHandleActionExecutedDelete` / `TestAppHandleActionExecutedUnknown` / `TestAppHandleActionExecutedNilAction` - action handlers
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 178 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+
