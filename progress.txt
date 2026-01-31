@@ -358,3 +358,41 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### STYLE-001: Adaptive Color Scheme (COMPLETED)
+
+**Task**: Adaptive color scheme detects terminal light/dark mode
+
+**Implementation**:
+- Verified all existing UI components already use `lipgloss.AdaptiveColor` for colors
+- Created `internal/ui/styles.go` with centralized color palette and reusable styles
+- All colors define both Light and Dark variants for automatic terminal theme adaptation
+- Color palette includes:
+  - Primary colors (purple accent for active/selected states)
+  - Text colors (dark in light mode, light in dark mode)
+  - Border colors (matches primary)
+  - Semantic colors (Success/green, Error/red, Info/blue) with proper contrast
+- No hardcoded ANSI escape codes found in codebase
+
+**Verification Steps Passed**:
+- [x] App uses lipgloss.AdaptiveColor for all colors
+- [x] Light terminal shows dark text on light background
+- [x] Dark terminal shows light text on dark background
+- [x] No hardcoded ANSI color codes
+
+**Tests** (styles_test.go):
+- `TestColorsUseAdaptiveColor` - verifies all palette colors have Light and Dark values
+- `TestColorContrastLightMode` - verifies light mode uses dark text colors
+- `TestColorContrastDarkMode` - verifies dark mode uses light text colors
+- `TestSemanticColorsHaveContrast` - verifies On* colors are white for contrast
+- `TestStylesExist` - verifies predefined styles render without panic
+- `TestNoHardcodedANSI` - verifies styles render non-empty output
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 184 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

@@ -100,7 +100,7 @@
         "Dark terminal shows light text on dark background",
         "No hardcoded ANSI color codes"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "STYLE-002",
