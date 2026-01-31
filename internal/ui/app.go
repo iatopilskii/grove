@@ -74,7 +74,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyTab, tea.KeyShiftTab:
 			a.tabs.Update(msg)
 			return a, nil
-		case tea.KeyUp, tea.KeyDown:
+		case tea.KeyUp, tea.KeyDown, tea.KeyPgUp, tea.KeyPgDown:
 			// Handle list navigation on Worktrees and Branches tabs
 			if a.tabs.Active() == TabWorktrees || a.tabs.Active() == TabBranches {
 				a.list.Update(msg)
@@ -153,7 +153,7 @@ func (a *App) View() string {
 	// Help text
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.AdaptiveColor{Light: "#666666", Dark: "#888888"})
-	b.WriteString(helpStyle.Render("↑/↓: navigate • Tab/Shift+Tab: switch tabs • q: quit"))
+	b.WriteString(helpStyle.Render("↑/↓: navigate • PgUp/PgDn: scroll page • Tab/Shift+Tab: switch tabs • q: quit"))
 
 	return b.String()
 }

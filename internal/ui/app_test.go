@@ -283,3 +283,100 @@ func TestAppViewRendersBothPanes(t *testing.T) {
 		t.Errorf("View() should have multiple lines for two-pane layout, got %d lines", len(lines))
 	}
 }
+
+// TestAppListNavigationPageDown verifies PageDown key navigation in list
+func TestAppListNavigationPageDown(t *testing.T) {
+	app := NewApp()
+	// Set up with many items for page navigation testing
+	items := make([]ListItem, 20)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item", Description: "Desc"}
+	}
+	app.list.SetItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 10}) // height determines page size
+
+	initial := app.list.Selected()
+	app.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	after := app.list.Selected()
+
+	if after <= initial {
+		t.Errorf("after KeyPgDown, list selection = %d, should be greater than %d", after, initial)
+	}
+}
+
+// TestAppListNavigationPageUp verifies PageUp key navigation in list
+func TestAppListNavigationPageUp(t *testing.T) {
+	app := NewApp()
+	// Set up with many items for page navigation testing
+	items := make([]ListItem, 20)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item", Description: "Desc"}
+	}
+	app.list.SetItems(items)
+	app.list.SetSelected(15)                              // Start from further down
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 10}) // height determines page size
+
+	initial := app.list.Selected()
+	app.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	after := app.list.Selected()
+
+	if after >= initial {
+		t.Errorf("after KeyPgUp, list selection = %d, should be less than %d", after, initial)
+	}
+}
+
+// TestAppPageNavigationUpdatesDetails verifies details pane updates after page navigation
+func TestAppPageNavigationUpdatesDetails(t *testing.T) {
+	app := NewApp()
+	// Set up with many items
+	items := make([]ListItem, 20)
+	for i := range items {
+		items[i] = ListItem{
+			ID:          string(rune('a' + i)),
+			Title:       "Item " + string(rune('A'+i)),
+			Description: "Description " + string(rune('A'+i)),
+		}
+	}
+	app.list.SetItems(items)
+	app.details.SetItem(app.list.SelectedItem())
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 5})
+
+	// Get initial details item
+	initialItem := app.details.Item()
+	if initialItem == nil {
+		t.Fatal("details should have an item")
+	}
+
+	// PageDown should update details
+	app.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	afterItem := app.details.Item()
+	if afterItem == nil {
+		t.Fatal("details should still have an item after page navigation")
+	}
+	if initialItem.ID == afterItem.ID {
+		t.Error("details item should change after PageDown navigation")
+	}
+}
+
+// TestAppPageNavigationOnlyOnListTabs verifies PageUp/PageDown only work on Worktrees/Branches tabs
+func TestAppPageNavigationOnlyOnListTabs(t *testing.T) {
+	app := NewApp()
+	items := make([]ListItem, 20)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item"}
+	}
+	app.list.SetItems(items)
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 5})
+
+	// Switch to Settings tab
+	app.tabs.SetActive(TabSettings)
+
+	initial := app.list.Selected()
+	app.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	after := app.list.Selected()
+
+	// Selection should not change on Settings tab
+	if after != initial {
+		t.Errorf("PageDown on Settings tab should not change selection, got %d want %d", after, initial)
+	}
+}

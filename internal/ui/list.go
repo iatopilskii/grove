@@ -97,6 +97,36 @@ func (l *List) MoveUp() {
 	}
 }
 
+// PageDown moves the selection down by one page (based on visible height).
+func (l *List) PageDown() {
+	if len(l.items) == 0 {
+		return
+	}
+	pageSize := l.height
+	if pageSize < 1 {
+		pageSize = 1
+	}
+	l.selected += pageSize
+	if l.selected >= len(l.items) {
+		l.selected = len(l.items) - 1
+	}
+}
+
+// PageUp moves the selection up by one page (based on visible height).
+func (l *List) PageUp() {
+	if len(l.items) == 0 {
+		return
+	}
+	pageSize := l.height
+	if pageSize < 1 {
+		pageSize = 1
+	}
+	l.selected -= pageSize
+	if l.selected < 0 {
+		l.selected = 0
+	}
+}
+
 // SetSize sets the list dimensions for rendering.
 func (l *List) SetSize(width, height int) {
 	l.width = width
@@ -112,6 +142,10 @@ func (l *List) Update(msg tea.Msg) tea.Cmd {
 			l.MoveDown()
 		case tea.KeyUp:
 			l.MoveUp()
+		case tea.KeyPgDown:
+			l.PageDown()
+		case tea.KeyPgUp:
+			l.PageUp()
 		case tea.KeyRunes:
 			if len(msg.Runes) > 0 {
 				switch msg.Runes[0] {

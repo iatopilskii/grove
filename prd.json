@@ -65,7 +65,7 @@
         "Current selection is visually distinct",
         "Page Up/Down scroll by page"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "id": "NAV-002",

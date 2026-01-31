@@ -171,3 +171,45 @@ go fmt ./...        # Code formatted
 go mod tidy         # Dependencies clean
 ```
 
+### NAV-001: Arrow Key Navigation in List Views (COMPLETED)
+
+**Task**: Arrow key navigation in list views with Page Up/Down support
+
+**Implementation**:
+- Added `PageDown()` method to List component - moves selection down by page size (based on visible height)
+- Added `PageUp()` method to List component - moves selection up by page size
+- Both methods handle edge cases: empty list, zero height (fallback to 1), and boundary clamping
+- Updated List's `Update()` method to handle `tea.KeyPgDown` and `tea.KeyPgUp` messages
+- Updated App's `Update()` method to route PageUp/PageDown keys to list on Worktrees/Branches tabs
+- Updated help text to include PgUp/PgDn navigation hint
+
+**Verification Steps Passed**:
+- [x] Up/Down arrows move selection cursor (already implemented)
+- [x] Selection wraps or stops at boundaries (stops at boundaries)
+- [x] Current selection is visually distinct (▸ indicator with background color)
+- [x] Page Up/Down scroll by page
+
+**Tests** (list_test.go - new tests):
+- `TestListPageDown` - verifies page-based navigation with boundary clamping
+- `TestListPageUp` - verifies page-based navigation with boundary clamping
+- `TestListPageDownEmpty` - verifies empty list doesn't panic
+- `TestListPageUpEmpty` - verifies empty list doesn't panic
+- `TestListPageDownZeroHeight` - verifies fallback page size of 1
+- `TestListPageUpZeroHeight` - verifies fallback page size of 1
+- `TestListUpdatePageKeys` - verifies KeyPgDown/KeyPgUp message handling
+
+**Tests** (app_test.go - new tests):
+- `TestAppListNavigationPageDown` - verifies App routes PageDown to list
+- `TestAppListNavigationPageUp` - verifies App routes PageUp to list
+- `TestAppPageNavigationUpdatesDetails` - verifies details pane updates after page navigation
+- `TestAppPageNavigationOnlyOnListTabs` - verifies page navigation only works on list tabs
+
+**Commands**:
+```
+go build ./cmd/gwt  # Builds successfully
+go test ./... -v    # All 93 tests pass
+go vet ./...        # No issues
+go fmt ./...        # Code formatted
+go mod tidy         # Dependencies clean
+```
+

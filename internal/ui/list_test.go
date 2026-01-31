@@ -353,3 +353,139 @@ func TestListSetItemsResetsSelection(t *testing.T) {
 		t.Errorf("after SetItems with shorter list, Selected() = %d, want 0", list.Selected())
 	}
 }
+
+// TestListPageDown verifies PageDown moves selection by page size
+func TestListPageDown(t *testing.T) {
+	// Create a list with 20 items
+	items := make([]ListItem, 20)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item"}
+	}
+	list := NewList(items)
+	list.SetSize(80, 5) // height=5 means page size of 5
+
+	// PageDown should move by page size
+	list.PageDown()
+	if list.Selected() != 5 {
+		t.Errorf("after PageDown with height=5, Selected() = %d, want 5", list.Selected())
+	}
+
+	// Another PageDown
+	list.PageDown()
+	if list.Selected() != 10 {
+		t.Errorf("after second PageDown, Selected() = %d, want 10", list.Selected())
+	}
+
+	// PageDown near end should clamp to last item
+	list.SetSelected(18)
+	list.PageDown()
+	if list.Selected() != 19 {
+		t.Errorf("PageDown from 18 should clamp to 19, got %d", list.Selected())
+	}
+}
+
+// TestListPageUp verifies PageUp moves selection by page size
+func TestListPageUp(t *testing.T) {
+	// Create a list with 20 items
+	items := make([]ListItem, 20)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item"}
+	}
+	list := NewList(items)
+	list.SetSize(80, 5) // height=5 means page size of 5
+	list.SetSelected(15)
+
+	// PageUp should move by page size
+	list.PageUp()
+	if list.Selected() != 10 {
+		t.Errorf("after PageUp with height=5 from 15, Selected() = %d, want 10", list.Selected())
+	}
+
+	// Another PageUp
+	list.PageUp()
+	if list.Selected() != 5 {
+		t.Errorf("after second PageUp, Selected() = %d, want 5", list.Selected())
+	}
+
+	// PageUp near beginning should clamp to first item
+	list.SetSelected(2)
+	list.PageUp()
+	if list.Selected() != 0 {
+		t.Errorf("PageUp from 2 should clamp to 0, got %d", list.Selected())
+	}
+}
+
+// TestListPageDownEmpty verifies PageDown on empty list doesn't panic
+func TestListPageDownEmpty(t *testing.T) {
+	list := NewList(nil)
+	list.SetSize(80, 10)
+	list.PageDown() // Should not panic
+	if list.Selected() != 0 {
+		t.Errorf("PageDown on empty list: Selected() = %d, want 0", list.Selected())
+	}
+}
+
+// TestListPageUpEmpty verifies PageUp on empty list doesn't panic
+func TestListPageUpEmpty(t *testing.T) {
+	list := NewList(nil)
+	list.SetSize(80, 10)
+	list.PageUp() // Should not panic
+	if list.Selected() != 0 {
+		t.Errorf("PageUp on empty list: Selected() = %d, want 0", list.Selected())
+	}
+}
+
+// TestListPageDownZeroHeight verifies PageDown with zero height uses fallback
+func TestListPageDownZeroHeight(t *testing.T) {
+	items := make([]ListItem, 10)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item"}
+	}
+	list := NewList(items)
+	// Don't set size (height=0)
+
+	list.PageDown()
+	// With zero height, should use fallback page size of 1 (moves at least one)
+	if list.Selected() != 1 {
+		t.Errorf("PageDown with zero height, Selected() = %d, want 1", list.Selected())
+	}
+}
+
+// TestListPageUpZeroHeight verifies PageUp with zero height uses fallback
+func TestListPageUpZeroHeight(t *testing.T) {
+	items := make([]ListItem, 10)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item"}
+	}
+	list := NewList(items)
+	list.SetSelected(5)
+	// Don't set size (height=0)
+
+	list.PageUp()
+	// With zero height, should use fallback page size of 1 (moves at least one)
+	if list.Selected() != 4 {
+		t.Errorf("PageUp with zero height from 5, Selected() = %d, want 4", list.Selected())
+	}
+}
+
+// TestListUpdatePageKeys verifies PageUp/PageDown key handling
+func TestListUpdatePageKeys(t *testing.T) {
+	items := make([]ListItem, 20)
+	for i := range items {
+		items[i] = ListItem{ID: string(rune('a' + i)), Title: "Item"}
+	}
+	list := NewList(items)
+	list.SetSize(80, 5)
+
+	// PageDown key
+	list.Update(tea.KeyMsg{Type: tea.KeyPgDown})
+	if list.Selected() != 5 {
+		t.Errorf("after KeyPgDown, Selected() = %d, want 5", list.Selected())
+	}
+
+	// PageUp key
+	list.Update(tea.KeyMsg{Type: tea.KeyPgUp})
+	if list.Selected() != 0 {
+		t.Errorf("after KeyPgUp, Selected() = %d, want 0", list.Selected())
+	}
+}
