@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ilatopilskij/grove/internal/ui"
+	"github.com/iatopilskii/grove/internal/ui"
 )
 
 func main() {

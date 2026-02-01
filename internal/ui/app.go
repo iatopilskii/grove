@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ilatopilskij/grove/internal/git"
+	"github.com/iatopilskii/grove/internal/git"
 )
 
 // App is the main application model implementing tea.Model.

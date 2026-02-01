@@ -13,7 +13,7 @@ A terminal user interface for managing Git worktrees, built with Go and [BubbleT
 ## Installation
 
 ```bash
-go install https://github.com/iatopilskii/grove/cmd/grove@latest
+go install github.com/iatopilskii/grove/cmd/grove@latest
 ```
 
 Or build from source:

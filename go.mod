@@ -1,4 +1,4 @@
-module github.com/ilatopilskij/grove
+module github.com/iatopilskii/grove
 
 go 1.24.4
 

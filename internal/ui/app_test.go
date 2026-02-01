@@ -6,7 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/ilatopilskij/grove/internal/git"
+	"github.com/iatopilskii/grove/internal/git"
 )
 
 // TestAppImplementsTeaModel verifies that App implements tea.Model interface
