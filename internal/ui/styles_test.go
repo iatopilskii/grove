@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/ilatopilskij/gwt/internal/config"
+	"github.com/ilatopilskij/grove/internal/config"
 )
 
 // TestColorsUseAdaptiveColor verifies all colors in the palette are AdaptiveColors.

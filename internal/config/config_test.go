@@ -31,9 +31,9 @@ func TestDefaultConfigPath(t *testing.T) {
 		t.Error("expected non-empty config path")
 	}
 
-	// Should contain gwt in the path
-	if !contains(path, "gwt") {
-		t.Errorf("expected path to contain 'gwt', got: %s", path)
+	// Should contain grove in the path
+	if !contains(path, "grove") {
+		t.Errorf("expected path to contain 'grove', got: %s", path)
 	}
 
 	// Should end with config.yaml

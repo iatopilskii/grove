@@ -3,7 +3,7 @@ package ui
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/ilatopilskij/gwt/internal/config"
+	"github.com/ilatopilskij/grove/internal/config"
 )
 
 // Colors defines the adaptive color palette for the application.

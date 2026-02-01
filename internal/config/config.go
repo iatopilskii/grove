@@ -80,7 +80,7 @@ func DefaultConfig() Config {
 }
 
 // DefaultConfigPath returns the default path for the application configuration file.
-// Uses XDG Base Directory Specification (~/.config/gwt/config.yaml).
+// Uses XDG Base Directory Specification (~/.config/grove/config.yaml).
 func DefaultConfigPath() string {
 	configDir := os.Getenv("XDG_CONFIG_HOME")
 	if configDir == "" {
@@ -90,7 +90,7 @@ func DefaultConfigPath() string {
 		}
 		configDir = filepath.Join(homeDir, ".config")
 	}
-	return filepath.Join(configDir, "gwt", "config.yaml")
+	return filepath.Join(configDir, "grove", "config.yaml")
 }
 
 // LoadConfig loads configuration from the specified path.
@@ -154,11 +154,11 @@ func mergeAdaptiveColor(dest, source *AdaptiveColor) {
 
 // GenerateSampleConfig generates a sample configuration YAML string with comments.
 func GenerateSampleConfig() string {
-	return `# GWT Theme Configuration
+	return `# Grove Theme Configuration
 # This file allows customization of the application's color scheme.
 # Colors use hex format (#RRGGBB) and support light/dark terminal themes.
 #
-# Location: ~/.config/gwt/config.yaml
+# Location: ~/.config/grove/config.yaml
 # Changes require application restart to take effect.
 
 theme:

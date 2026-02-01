@@ -1,4 +1,4 @@
-module github.com/ilatopilskij/gwt
+module github.com/ilatopilskij/grove
 
 go 1.24.4
 

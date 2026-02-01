@@ -7,7 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/ilatopilskij/gwt/internal/git"
+	"github.com/ilatopilskij/grove/internal/git"
 )
 
 // App is the main application model implementing tea.Model.
@@ -39,6 +39,8 @@ type App struct {
 	gitError error
 	// repoPath is the path to the git repository
 	repoPath string
+	// targetPath is the path to cd to after quitting (for shell wrapper)
+	targetPath string
 }
 
 // NewApp creates and returns a new App instance.
@@ -405,11 +407,10 @@ func (a *App) handleCreateFormSubmitted(msg CreateFormSubmittedMsg) (tea.Model, 
 		return a, cmd
 	}
 
-	// Refresh the worktree list
-	a.loadWorktrees()
-
-	cmd := a.feedback.ShowSuccess("Created worktree: " + msg.Result.Branch + " at " + msg.Result.Path)
-	return a, cmd
+	// Set target path and quit so shell wrapper can cd to it
+	a.targetPath = msg.Result.Path
+	a.quitting = true
+	return a, tea.Quit
 }
 
 // handleConfirmDialogResult processes the result of a confirmation dialog.
@@ -473,6 +474,11 @@ func (a *App) CreateForm() *CreateForm {
 	return a.createForm
 }
 
+// TargetPath returns the path to cd to after quitting (for shell wrapper).
+func (a *App) TargetPath() string {
+	return a.targetPath
+}
+
 // updatePaneSizes updates the sizes of list and details panes based on terminal size.
 func (a *App) updatePaneSizes() {
 	// Calculate available space after tabs and help text
@@ -501,6 +507,10 @@ func (a *App) updatePaneSizes() {
 // View renders the current state of the application as a string.
 func (a *App) View() string {
 	if a.quitting {
+		// Suppress output when targetPath is set (shell wrapper will handle cd)
+		if a.targetPath != "" {
+			return ""
+		}
 		return "Goodbye!\n"
 	}
 
